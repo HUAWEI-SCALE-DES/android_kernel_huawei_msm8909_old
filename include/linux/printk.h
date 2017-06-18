@@ -9,12 +9,6 @@
 extern const char linux_banner[];
 extern const char linux_proc_banner[];
 
-#ifdef CONFIG_HUAWEI_KERNEL
-#ifndef HIDE_PRODUCT_INFO_KERNEL
-extern const char hide_version[];
-#endif
-#endif
-
 static inline int printk_get_level(const char *buffer)
 {
 	if (buffer[0] == KERN_SOH_ASCII && buffer[1]) {
