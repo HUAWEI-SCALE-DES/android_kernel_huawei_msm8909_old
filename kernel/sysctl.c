@@ -1276,17 +1276,6 @@ static struct ctl_table kern_table[] = {
 		.proc_handler	= proc_dointvec,
 	},
 #endif
-#ifdef CONFIG_HUAWEI_KERNEL
-#ifndef HIDE_PRODUCT_INFO_KERNEL
-	{
-		.procname = "hide_info",
-		.data = &hide_info,
-		.maxlen = sizeof(int),
-		.mode = 0664,
-		.proc_handler = proc_dointvec,
-	}
-#endif
-#endif
 /*
  * NOTE: do not add new entries to this table unless you have read
  * Documentation/sysctl/ctl_unnumbered.txt
