@@ -23,9 +23,11 @@
  * The valid range of num_buffers is: num >= 2 && num <= 4.
  */
 
+
 #include <linux/usb/storage.h>
 #include <scsi/scsi.h>
 #include <asm/unaligned.h>
+
 
 /*
  * Thanks to NetChip Technologies for donating this product ID.
@@ -36,7 +38,9 @@
 #define FSG_VENDOR_ID	0x0525	/* NetChip */
 #define FSG_PRODUCT_ID	0xa4a5	/* Linux-USB File-backed Storage Gadget */
 
+
 /*-------------------------------------------------------------------------*/
+
 
 #ifndef DEBUG
 #undef VERBOSE_DEBUG
@@ -53,6 +57,7 @@
 #define LERROR(lun, fmt, args...) dev_err (&(lun)->dev, fmt, ## args)
 #define LWARN(lun, fmt, args...)  dev_warn(&(lun)->dev, fmt, ## args)
 #define LINFO(lun, fmt, args...)  dev_info(&(lun)->dev, fmt, ## args)
+
 
 #ifdef DUMP_MSGS
 
@@ -111,7 +116,9 @@
 #define ASC(x)		((u8) ((x) >> 8))
 #define ASCQ(x)		((u8) (x))
 
+
 /*-------------------------------------------------------------------------*/
+
 
 struct fsg_lun {
 	struct file	*filp;
@@ -156,6 +163,7 @@ static inline struct fsg_lun *fsg_lun_from_dev(struct device *dev)
 {
 	return container_of(dev, struct fsg_lun, dev);
 }
+
 
 /* Big enough to hold our biggest descriptor */
 #define EP0_BUFSIZE	256
@@ -244,18 +252,23 @@ enum data_direction {
 	DATA_DIR_NONE
 };
 
+
 /*-------------------------------------------------------------------------*/
+
 
 static inline u32 get_unaligned_be24(u8 *buf)
 {
 	return 0xffffff & (u32) get_unaligned_be32(buf - 1);
 }
 
+
 /*-------------------------------------------------------------------------*/
+
 
 enum {
 	FSG_STRING_INTERFACE
 };
+
 
 /* There is only one interface. */
 
@@ -303,6 +316,7 @@ static struct usb_descriptor_header *fsg_fs_function[] = {
 	NULL,
 };
 
+
 /*
  * USB 2.0 devices need to expose both high speed and full speed
  * descriptors, unless they only run at full speed.
@@ -331,6 +345,7 @@ fsg_hs_bulk_out_desc = {
 	.wMaxPacketSize =	cpu_to_le16(512),
 	.bInterval =		1,	/* NAK every 1 uframe */
 };
+
 
 static struct usb_descriptor_header *fsg_hs_function[] = {
 	(struct usb_descriptor_header *) &fsg_intf_desc,
@@ -393,6 +408,7 @@ static struct usb_gadget_strings	fsg_stringtab = {
 	.strings	= fsg_strings,
 };
 
+
  /*-------------------------------------------------------------------------*/
 
 /*
@@ -408,6 +424,7 @@ static void fsg_lun_close(struct fsg_lun *curlun)
 		curlun->filp = NULL;
 	}
 }
+
 
 static int fsg_lun_open(struct fsg_lun *curlun, const char *filename)
 {
@@ -462,19 +479,6 @@ static int fsg_lun_open(struct fsg_lun *curlun, const char *filename)
 		goto out;
 	}
 
-    /*
-     * curlun->blksize remains the old value when switch from cdrom to udisk
-     * so use the same blksie in cdrom and udisk
-     */
-#ifdef CONFIG_HUAWEI_USB
-	if (inode->i_bdev) {
-		blksize = bdev_logical_block_size(inode->i_bdev);
-		blkbits = blksize_bits(blksize);
-	} else {
-		blksize = 512;
-		blkbits = 9;
-	}
-#else
 	if (curlun->cdrom) {
 		blksize = 2048;
 		blkbits = 11;
@@ -485,12 +489,9 @@ static int fsg_lun_open(struct fsg_lun *curlun, const char *filename)
 		blksize = 512;
 		blkbits = 9;
 	}
-#endif
 
 	num_sectors = size >> blkbits; /* File size in logic-block-size blocks */
 	min_sectors = 1;
-
-#ifndef CONFIG_HUAWEI_USB
 	if (curlun->cdrom) {
 		min_sectors = 300;	/* Smallest track is 300 frames */
 		if (num_sectors >= 256*60*75) {
@@ -500,8 +501,6 @@ static int fsg_lun_open(struct fsg_lun *curlun, const char *filename)
 					(int) num_sectors);
 		}
 	}
-#endif
-
 	if (num_sectors < min_sectors) {
 		LINFO(curlun, "file too small: %s\n", filename);
 		rc = -ETOOSMALL;
@@ -524,6 +523,7 @@ out:
 	fput(filp);
 	return rc;
 }
+
 
 /*-------------------------------------------------------------------------*/
 
@@ -558,7 +558,9 @@ static void store_cdrom_address(u8 *dest, int msf, u32 addr)
 	}
 }
 
+
 /*-------------------------------------------------------------------------*/
+
 
 static ssize_t fsg_show_ro(struct device *dev, struct device_attribute *attr,
 			   char *buf)
@@ -576,6 +578,14 @@ static ssize_t fsg_show_nofua(struct device *dev, struct device_attribute *attr,
 	struct fsg_lun	*curlun = fsg_lun_from_dev(dev);
 
 	return sprintf(buf, "%u\n", curlun->nofua);
+}
+
+static ssize_t fsg_show_cdrom (struct device *dev, struct device_attribute *attr,
+			   char *buf)
+{
+	struct fsg_lun  *curlun = fsg_lun_from_dev(dev);
+
+	return sprintf(buf, "%d\n", curlun->cdrom);
 }
 
 #ifdef CONFIG_USB_MSC_PROFILING
@@ -645,6 +655,7 @@ static ssize_t fsg_show_file(struct device *dev, struct device_attribute *attr,
 	return rc;
 }
 
+
 static ssize_t fsg_store_ro(struct device *dev, struct device_attribute *attr,
 			    const char *buf, size_t count)
 {
@@ -702,11 +713,7 @@ static ssize_t fsg_store_file(struct device *dev, struct device_attribute *attr,
 	struct fsg_lun	*curlun = fsg_lun_from_dev(dev);
 	struct rw_semaphore	*filesem = dev_get_drvdata(dev);
 	int		rc = 0;
-    
-    /* for easy to debug ,add a log here */
-#ifdef CONFIG_HUAWEI_USB
-    printk("%s: %s buf = %s\n", __func__, dev_name(dev), buf); 
-#endif
+
 
 #if !defined(CONFIG_USB_G_ANDROID)
 	/* disabled in android because we need to allow closing the backing file
@@ -724,20 +731,6 @@ static ssize_t fsg_store_file(struct device *dev, struct device_attribute *attr,
 
 	/* Load new medium */
 	down_write(filesem);
-#ifdef CONFIG_HUAWEI_USB
-    if(curlun->cdrom && fsg_lun_is_open(curlun)) {
-        printk("%s: is cdrom and already opened, ignore\n", __func__);
-	}else if (count > 0 && buf[0]) {
-		/* fsg_lun_open() will close existing file if any. */
-		rc = fsg_lun_open(curlun, buf);
-		if (rc == 0)
-			curlun->unit_attention_data =
-					SS_NOT_READY_TO_READY_TRANSITION;
-	} else if (fsg_lun_is_open(curlun)) {
-		fsg_lun_close(curlun);
-		curlun->unit_attention_data = SS_MEDIUM_NOT_PRESENT;
-	}
-#else
 	if (count > 0 && buf[0]) {
 		/* fsg_lun_open() will close existing file if any. */
 		rc = fsg_lun_open(curlun, buf);
@@ -748,7 +741,35 @@ static ssize_t fsg_store_file(struct device *dev, struct device_attribute *attr,
 		fsg_lun_close(curlun);
 		curlun->unit_attention_data = SS_MEDIUM_NOT_PRESENT;
 	}
-#endif
 	up_write(filesem);
 	return (rc < 0 ? rc : count);
+}
+
+static ssize_t fsg_store_cdrom(struct device *dev, struct device_attribute *attr,
+				  const char *buf, size_t count)
+{
+	ssize_t    rc;
+	struct fsg_lun  *curlun = fsg_lun_from_dev(dev);
+	struct rw_semaphore  *filesem = dev_get_drvdata(dev);
+	unsigned  cdrom;
+
+	rc = kstrtouint(buf, 2, &cdrom);
+	if (rc)
+		return rc;
+
+	/*
+	 * Allow the cdrom status to change only while the
+	 * backing file is closed.
+	 */
+	down_read(filesem);
+	if (fsg_lun_is_open(curlun)) {
+		LDBG(curlun, "cdrom status change prevented\n");
+		rc = -EBUSY;
+	} else {
+		curlun->cdrom = cdrom;
+		LDBG(curlun, "cdrom status set to %d\n", curlun->cdrom);
+		rc = count;
+	}
+	up_read(filesem);
+	return rc;
 }

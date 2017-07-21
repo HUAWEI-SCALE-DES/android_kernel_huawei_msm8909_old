@@ -41,9 +41,6 @@ struct list_head apply_list;
 
 DEFINE_MUTEX(msm_bus_adhoc_lock);
 
-//structure to get timestamp in msm_bus_scale_client_update_request() and in flush_bw_data()
-struct timespec bus_req_ts[4];
-
 static bool chk_bl_list(struct list_head *black_list, unsigned int id)
 {
 	struct msm_bus_node_device_type *bus_node = NULL;
@@ -898,7 +895,6 @@ exit_register_client:
 	return handle;
 }
 
-
 static int update_request_adhoc(uint32_t cl, unsigned int index)
 {
 	int i, ret = 0;
@@ -910,8 +906,6 @@ static int update_request_adhoc(uint32_t cl, unsigned int index)
 	bool log_transaction = false;
 
 	mutex_lock(&msm_bus_adhoc_lock);
-
-	bus_req_ts[0] = current_kernel_time();
 
 	if (!cl) {
 		MSM_BUS_ERR("%s: Invalid client handle %d", __func__, cl);
@@ -980,11 +974,7 @@ static int update_request_adhoc(uint32_t cl, unsigned int index)
 		if (log_transaction)
 			getpath_debug(src, lnode, pdata->active_only);
 	}
-
-	MSM_BUS_DBG("%s: Update_req_ts_start: %lu.%lu, Update_req_ts_end: %lu.%lu\n", __func__, bus_req_ts[0].tv_sec, bus_req_ts[0].tv_nsec, bus_req_ts[3].tv_sec, bus_req_ts[3].tv_nsec);
-	MSM_BUS_DBG("%s: flush_bw_ts_start: %lu.%lu, flush_bw_ts_end: %lu.%lu\n", __func__, bus_req_ts[1].tv_sec, bus_req_ts[1].tv_nsec, bus_req_ts[2].tv_sec, bus_req_ts[2].tv_nsec);
 	trace_bus_update_request_end(pdata->name);
-	bus_req_ts[3] = current_kernel_time();
 exit_update_request:
 	mutex_unlock(&msm_bus_adhoc_lock);
 	return ret;

@@ -253,10 +253,9 @@ int spmi_add_device(struct spmi_device *spmidev)
 	if (rc < 0) {
 		ida_simple_remove(&spmi_devid_ida, spmidev->id);
 		dev_err(dev, "Can't add %s, status %d\n", dev_name(dev), rc);
-	}else{
+	} else {
 		dev_dbg(dev, "device %s registered\n", dev_name(dev));
 	}
-
 
 	return rc;
 }

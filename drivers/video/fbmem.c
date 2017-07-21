@@ -34,23 +34,7 @@
 #include <linux/fb.h>
 
 #include <asm/fb.h>
-#ifdef CONFIG_HUAWEI_LCD
-extern int get_offline_cpu(void);
-extern unsigned int cpufreq_get(unsigned int cpu);
-extern int lcd_debug_mask ;
-#define LCD_INFO 2
 
-#ifndef LCD_LOG_INFO
-#define LCD_LOG_INFO( x...)					\
-do{											\
-	if( lcd_debug_mask >= LCD_INFO )		\
-	{										\
-		printk(KERN_ERR "[LCD_INFO] " x);	\
-	}										\
-											\
-}while(0)
-#endif
-#endif
 
     /*
      *  Frame buffer device initialization and setup routines
@@ -531,6 +515,7 @@ static int fb_show_logo_line(struct fb_info *info, int rotate,
 	return logo->height;
 }
 
+
 #ifdef CONFIG_FB_LOGO_EXTRA
 
 #define FB_LOGO_EX_NUM_MAX 10
@@ -601,6 +586,7 @@ static inline int fb_show_extra_logos(struct fb_info *info, int y, int rotate)
 
 #endif /* CONFIG_FB_LOGO_EXTRA */
 
+
 int fb_prepare_logo(struct fb_info *info, int rotate)
 {
 	int depth = fb_get_color_depth(&info->var, &info->fix);
@@ -649,6 +635,7 @@ int fb_prepare_logo(struct fb_info *info, int rotate)
 		fb_logo.depth = 4;
 	else
 		fb_logo.depth = 1;
+
 
  	if (fb_logo.depth > 4 && depth > 4) {
  		switch (info->fix.visual) {
@@ -971,6 +958,7 @@ fb_set_var(struct fb_info *info, struct fb_var_screeninfo *var)
 		if (!ret)
 		    fb_delete_videomode(&mode1, &info->modelist);
 
+
 		ret = (ret) ? -EINVAL : 0;
 		goto done;
 	}
@@ -1060,10 +1048,6 @@ fb_blank(struct fb_info *info, int blank)
 {	
 	struct fb_event event;
 	int ret = -EINVAL, early_ret;
-#ifdef CONFIG_HUAWEI_LCD
-	unsigned long timeout ;
-	LCD_LOG_INFO("Enter %s, blank_mode = [%d].\n",__func__,blank);
-#endif
 
  	if (blank > FB_BLANK_POWERDOWN)
  		blank = FB_BLANK_POWERDOWN;
@@ -1072,15 +1056,10 @@ fb_blank(struct fb_info *info, int blank)
 	event.data = &blank;
 
 	early_ret = fb_notifier_call_chain(FB_EARLY_EVENT_BLANK, &event);
-#ifdef CONFIG_HUAWEI_LCD
-	timeout = jiffies ;
-#endif
+
 	if (info->fbops->fb_blank)
  		ret = info->fbops->fb_blank(blank, info);
-#ifdef CONFIG_HUAWEI_LCD
-	LCD_LOG_INFO("%s: fb blank time = %u,offlinecpu = %d,curfreq = %d\n",
-			__func__,jiffies_to_msecs(jiffies-timeout),get_offline_cpu(),cpufreq_get(0));
-#endif
+
 	if (!ret)
 		fb_notifier_call_chain(FB_EVENT_BLANK, &event);
 	else {
@@ -1091,9 +1070,6 @@ fb_blank(struct fb_info *info, int blank)
 		if (!early_ret)
 			fb_notifier_call_chain(FB_R_EARLY_EVENT_BLANK, &event);
 	}
-#ifdef CONFIG_HUAWEI_LCD
-	LCD_LOG_INFO("Exit %s, blank_mode = [%d].\n",__func__,blank);
-#endif
 
  	return ret;
 }

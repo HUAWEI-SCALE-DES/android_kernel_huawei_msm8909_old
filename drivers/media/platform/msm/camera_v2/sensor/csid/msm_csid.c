@@ -45,10 +45,6 @@
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
-#ifdef CONFIG_HUAWEI_KERNEL
-extern bool huawei_cam_is_factory_mode(void);
-#endif
-
 static struct msm_cam_clk_info csid_clk_info[CSID_NUM_CLK_MAX];
 static struct msm_cam_clk_info csid_clk_src_info[CSID_NUM_CLK_MAX];
 
@@ -149,7 +145,7 @@ static int msm_csid_config(struct csid_device *csid_dev,
 	void __iomem *csidbase;
 	csidbase = csid_dev->base;
 	if (!csidbase || !csid_params) {
-		pr_err("%s:%d csidbase %pK, csid params %pK\n", __func__,
+		pr_err("%s:%d csidbase %p, csid params %p\n", __func__,
 			__LINE__, csidbase, csid_params);
 		return -EINVAL;
 	}
@@ -222,34 +218,12 @@ static irqreturn_t msm_csid_irq(int irq_num, void *data)
 	}
 	irq = msm_camera_io_r(csid_dev->base +
 		csid_dev->ctrl_reg->csid_reg.csid_irq_status_addr);
-
-#ifdef CONFIG_HUAWEI_KERNEL
-	if(huawei_cam_is_factory_mode() || csid_dev->csid_sof_debug == 1)
-	{
-		if(csid_dev->pdev)
-		{
-			pr_err("%s CSID%d_IRQ_STATUS_ADDR = 0x%x\n",
-				   __func__, csid_dev->pdev->id, irq);
-		}
-		else
-		{
-			pr_err("%s:%d csid_dev->pdev NULL\n", __func__, __LINE__);
-		}
-	}
-	else
-	{
-		CDBG("%s CSID%d_IRQ_STATUS_ADDR = 0x%x\n",
-			 __func__, csid_dev->pdev->id, irq);
-	}
-#else
 	if (csid_dev->csid_sof_debug == 1)
 		pr_err("%s CSID%d_IRQ_STATUS_ADDR = 0x%x\n",
 			 __func__, csid_dev->pdev->id, irq);
 	else
 		CDBG("%s CSID%d_IRQ_STATUS_ADDR = 0x%x\n",
 			 __func__, csid_dev->pdev->id, irq);
-#endif
-
 	if (irq & (0x1 <<
 		csid_dev->ctrl_reg->csid_reg.csid_rst_done_irq_bitshift))
 		complete(&csid_dev->reset_complete);
@@ -275,18 +249,7 @@ static int msm_csid_irq_routine(struct v4l2_subdev *sd, u32 status,
 {
 	struct csid_device *csid_dev = v4l2_get_subdevdata(sd);
 	irqreturn_t ret;
-#ifdef CONFIG_HUAWEI_KERNEL
-	if(huawei_cam_is_factory_mode())
-	{
-		pr_err("%s E\n", __func__);
-	}
-	else
-	{
-		CDBG("%s E\n", __func__);
-	}
-#else
 	CDBG("%s E\n", __func__);
-#endif
 	ret = msm_csid_irq(csid_dev->irq->start, csid_dev);
 	*handled = TRUE;
 	return 0;
@@ -376,6 +339,7 @@ static int msm_csid_init(struct csid_device *csid_dev, uint32_t *csid_version)
 		msm_cam_clk_sel_src(&csid_dev->pdev->dev,
 			&csid_clk_info[3], csid_clk_src_info,
 			csid_dev->num_clk_src_info);
+
 
 	rc = msm_cam_clk_enable(&csid_dev->pdev->dev,
 			csid_clk_info, csid_dev->csid_clk,
@@ -531,7 +495,7 @@ static int32_t msm_csid_cmd(struct csid_device *csid_dev, void __user *arg)
 	struct csid_cfg_data *cdata = (struct csid_cfg_data *)arg;
 
 	if (!csid_dev || !cdata) {
-		pr_err("%s:%d csid_dev %pK, cdata %pK\n", __func__, __LINE__,
+		pr_err("%s:%d csid_dev %p, cdata %p\n", __func__, __LINE__,
 			csid_dev, cdata);
 		return -EINVAL;
 	}
@@ -647,6 +611,7 @@ static long msm_csid_subdev_ioctl(struct v4l2_subdev *sd,
 	return rc;
 }
 
+
 #ifdef CONFIG_COMPAT
 static int32_t msm_csid_cmd32(struct csid_device *csid_dev, void __user *arg)
 {
@@ -658,7 +623,7 @@ static int32_t msm_csid_cmd32(struct csid_device *csid_dev, void __user *arg)
 	cdata = &local_arg;
 
 	if (!csid_dev || !cdata) {
-		pr_err("%s:%d csid_dev %pK, cdata %pK\n", __func__, __LINE__,
+		pr_err("%s:%d csid_dev %p, cdata %p\n", __func__, __LINE__,
 			csid_dev, cdata);
 		return -EINVAL;
 	}
@@ -989,6 +954,7 @@ static int csid_probe(struct platform_device *pdev)
 		pr_err("%s: msm_csid_get_clk_info() failed", __func__);
 		return -EFAULT;
 	}
+
 
 	new_csid_dev->mem = platform_get_resource_byname(pdev,
 					IORESOURCE_MEM, "csid");

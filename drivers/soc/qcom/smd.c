@@ -140,14 +140,8 @@ struct interrupt_stat interrupt_stats[NUM_SMD_SUBSYSTEMS];
 					  entry * SMSM_NUM_HOSTS + host)
 #define SMSM_INTR_MUX_ADDR(entry)        (smsm_info.intr_mux + entry)
 
-#ifdef CONFIG_HUAWEI_WIFI
-int msm_smd_debug_mask = MSM_SMD_POWER_INFO | MSM_SMD_INFO |
-							MSM_SMSM_POWER_INFO |
-							MSM_SMD_DEBUG|MSM_SMSM_DEBUG|MSM_SMSM_INFO;
-#else
 int msm_smd_debug_mask = MSM_SMD_POWER_INFO | MSM_SMD_INFO |
 							MSM_SMSM_POWER_INFO;
-#endif
 module_param_named(debug_mask, msm_smd_debug_mask,
 		   int, S_IRUGO | S_IWUSR | S_IWGRP);
 void *smd_log_ctx;
@@ -1612,12 +1606,14 @@ static int smd_packet_write(smd_channel_t *ch, const void *_data, int len,
 	hdr[0] = len;
 	hdr[1] = hdr[2] = hdr[3] = hdr[4] = 0;
 
+
 	ret = smd_stream_write(ch, hdr, sizeof(hdr), false);
 	if (ret < 0 || ret != sizeof(hdr)) {
 		SMD_DBG("%s failed to write pkt header: %d returned\n",
 								__func__, ret);
 		return -EFAULT;
 	}
+
 
 	ret = smd_stream_write(ch, _data, len, true);
 	if (ret < 0 || ret != len) {
@@ -2071,6 +2067,7 @@ int smd_write_start(smd_channel_t *ch, int len)
 
 	hdr[0] = len;
 	hdr[1] = hdr[2] = hdr[3] = hdr[4] = 0;
+
 
 	ret = smd_stream_write(ch, hdr, sizeof(hdr), true);
 	if (ret < 0 || ret != sizeof(hdr)) {
@@ -2849,6 +2846,7 @@ void notify_smsm_cb_clients_worker(struct work_struct *work)
 	}
 }
 
+
 /**
  * Registers callback for SMSM state notifications when the specified
  * bits change.
@@ -2933,6 +2931,7 @@ cleanup:
 	return ret;
 }
 EXPORT_SYMBOL(smsm_state_cb_register);
+
 
 /**
  * Deregisters for SMSM state notifications for the specified bits.

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -9,6 +9,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
 
 #include <linux/init.h>
 #include <linux/err.h>
@@ -36,6 +37,7 @@
 
 #include "msm-pcm-q6-v2.h"
 #include "msm-pcm-routing-v2.h"
+#include <linux/ratelimit.h>
 
 enum stream_state {
 	IDLE = 0,
@@ -317,9 +319,6 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 		pr_err("%s: q6asm_open_write_v2 failed\n", __func__);
 		q6asm_audio_client_free(prtd->audio_client);
 		prtd->audio_client = NULL;
-#ifdef CONFIG_HUAWEI_KERNEL_DEBUG
-		panic("@@q6asm_open_write_v2 failed@@");
-#endif
 		return -ENOMEM;
 	}
 
@@ -499,6 +498,7 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *soc_prtd = substream->private_data;
 	struct msm_audio *prtd;
 	int ret = 0;
+	static DEFINE_RATELIMIT_STATE(rl, HZ/2, 1);
 
 	prtd = kzalloc(sizeof(struct msm_audio), GFP_KERNEL);
 	if (prtd == NULL) {
@@ -509,7 +509,8 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	prtd->audio_client = q6asm_audio_client_alloc(
 				(app_cb)event_handler, prtd);
 	if (!prtd->audio_client) {
-		pr_info("%s: Could not allocate memory\n", __func__);
+		if (__ratelimit(&rl))
+			pr_err("%s: Could not allocate memory\n", __func__);
 		kfree(prtd);
 		return -ENOMEM;
 	}
@@ -712,6 +713,7 @@ static int msm_pcm_capture_copy(struct snd_pcm_substream *substream,
 	uint32_t offset = 0;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_audio *prtd = substream->runtime->private_data;
+
 
 	pr_debug("%s\n", __func__);
 	fbytes = frames_to_bytes(runtime, frames);
@@ -1236,6 +1238,7 @@ static int msm_pcm_probe(struct platform_device *pdev)
 		pdata->perf_mode = LEGACY_PCM_MODE;
 
 	dev_set_drvdata(&pdev->dev, pdata);
+
 
 	dev_dbg(&pdev->dev, "%s: dev name %s\n",
 				__func__, dev_name(&pdev->dev));

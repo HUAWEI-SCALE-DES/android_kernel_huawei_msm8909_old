@@ -44,9 +44,6 @@
 #define SMEM_IMAGE_VERSION_OEM_OFFSET 96
 #define SMEM_IMAGE_VERSION_PARTITION_APPS 10
 
-#ifdef CONFIG_HUAWEI_KERNEL
-#define HW_BOARDID_BEGIN_NUM 8000
-#endif
 enum {
 	HW_PLATFORM_UNKNOWN = 0,
 	HW_PLATFORM_SURF    = 1,
@@ -120,7 +117,8 @@ const char *hw_platform_subtype[] = {
 	[PLATFORM_SUBTYPE_UNKNOWN] = "Unknown",
 	[PLATFORM_SUBTYPE_CHARM] = "charm",
 	[PLATFORM_SUBTYPE_STRANGE] = "strange",
-	[PLATFORM_SUBTYPE_STRANGE_2A] = "strange_2a,"
+	[PLATFORM_SUBTYPE_STRANGE_2A] = "strange_2a",
+	[PLATFORM_SUBTYPE_INVALID] = "Invalid",
 };
 
 /* Used to parse shared memory.  Must match the modem. */
@@ -242,6 +240,7 @@ static struct msm_soc_info cpu_of_id[] = {
 	[63] = {MSM_CPU_7X25, "MSM7X25"},
 	[66] = {MSM_CPU_7X25, "MSM7X25"},
 
+
 	/* 7x27 IDs */
 	[43] = {MSM_CPU_7X27, "MSM7X27"},
 	[44] = {MSM_CPU_7X27, "MSM7X27"},
@@ -249,6 +248,7 @@ static struct msm_soc_info cpu_of_id[] = {
 	[67] = {MSM_CPU_7X27, "MSM7X27"},
 	[68] = {MSM_CPU_7X27, "MSM7X27"},
 	[69] = {MSM_CPU_7X27, "MSM7X27"},
+
 
 	/* 8x50 IDs */
 	[30] = {MSM_CPU_8X50, "MSM8X50"},
@@ -482,6 +482,8 @@ static struct msm_soc_info cpu_of_id[] = {
 	[260] = {MSM_CPU_8909, "MDMFERRUM"},
 	[261] = {MSM_CPU_8909, "MDMFERRUM"},
 	[262] = {MSM_CPU_8909, "MDMFERRUM"},
+	[300] = {MSM_CPU_8909, "MSM8909W"},
+	[301] = {MSM_CPU_8909, "APQ8009W"},
 
 	/* ZIRC IDs */
 	[234] = {MSM_CPU_ZIRC, "MSMZIRC"},
@@ -585,6 +587,7 @@ uint32_t socinfo_get_platform_type(void)
 		(socinfo->v1.format >= 3 ? socinfo->v3.hw_platform : 0)
 		: 0;
 }
+
 
 uint32_t socinfo_get_platform_version(void)
 {
@@ -691,15 +694,6 @@ msm_get_hw_platform(struct device *dev,
 	uint32_t hw_type;
 	hw_type = socinfo_get_platform_type();
 
-#ifdef CONFIG_HUAWEI_KERNEL
-    if(hw_type >= HW_BOARDID_BEGIN_NUM)
-	{
-         hw_type = HW_PLATFORM_QRD;
-	}else if(hw_type >= HW_PLATFORM_INVALID)
-    {
-         hw_type = HW_PLATFORM_UNKNOWN;
-	}
-#endif
 	return snprintf(buf, PAGE_SIZE, "%-.32s\n",
 			hw_platform[hw_type]);
 }
@@ -737,10 +731,14 @@ msm_get_platform_subtype(struct device *dev,
 		}
 		return snprintf(buf, PAGE_SIZE, "%-.32s\n",
 					qrd_hw_platform_subtype[hw_subtype]);
+	} else {
+		if (hw_subtype >= PLATFORM_SUBTYPE_INVALID) {
+			pr_err("Invalid hardware platform subtype\n");
+			hw_subtype = PLATFORM_SUBTYPE_INVALID;
+		}
+		return snprintf(buf, PAGE_SIZE, "%-.32s\n",
+			hw_platform_subtype[hw_subtype]);
 	}
-
-	return snprintf(buf, PAGE_SIZE, "%-.32s\n",
-		hw_platform_subtype[hw_subtype]);
 }
 
 static ssize_t
@@ -928,6 +926,7 @@ msm_select_image(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 
+
 static struct device_attribute msm_soc_attr_raw_version =
 	__ATTR(raw_version, S_IRUGO, msm_get_raw_version,  NULL);
 
@@ -942,6 +941,7 @@ static struct device_attribute msm_soc_attr_build_id =
 
 static struct device_attribute msm_soc_attr_hw_platform =
 	__ATTR(hw_platform, S_IRUGO, msm_get_hw_platform, NULL);
+
 
 static struct device_attribute msm_soc_attr_platform_version =
 	__ATTR(platform_version, S_IRUGO,

@@ -437,7 +437,6 @@ static int ci13xxx_msm_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "request_irq failed\n");
 		goto gpio_uninstall;
 	}
-	dev_err(&pdev->dev, "USB_DEBUG: request_irq is %d\n", _udc_ctxt.irq);
 
 	pm_runtime_no_callbacks(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);

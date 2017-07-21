@@ -662,12 +662,12 @@ static ssize_t dwc3_store_ep_num(struct file *file, const char __user *ubuf,
 		return -EINVAL;
 
 	if (dir != 0 && dir != 1)
-		return -EINVAL; 
+		return -EINVAL;
 
 	temp = (num << 1) + dir;
 	if (temp >= (dwc->num_in_eps + dwc->num_out_eps) ||
-			temp >= DWC3_ENDPOINTS_NUM)
-		return -EINVAL; 
+					temp >= DWC3_ENDPOINTS_NUM)
+		return -EINVAL;
 
 	spin_lock_irqsave(&dwc->lock, flags);
 	ep_num = temp;

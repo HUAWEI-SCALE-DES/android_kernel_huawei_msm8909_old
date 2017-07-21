@@ -120,14 +120,6 @@ void msm_isp_process_stats_irq(struct vfe_device *vfe_dev,
 		buf_event.input_intf = VFE_PIX_0;
 		pingpong_status = vfe_dev->hw_info->
 			vfe_ops.stats_ops.get_pingpong_status(vfe_dev);
-/*  CASE ID: 02093470
-    Merge SBA MSM8909.LA.1.1.c4-011302102-STD.PROD-1.21861.1.22182.6 
-    PATCH_112440_SBAforTaskidCaseid_20150723.tar.gz 
-    1281366_0001-msm-isp-Update-tintless-configuration-support-for-VF.patch
-    */
-		stats_event->is_full_size_stats = vfe_dev->fullsize_stats;
-		stats_event->vnum = vfe_dev->stats_vnum;
-		stats_event->hnum = vfe_dev->stats_hnum;
 
 		for (i = 0; i < vfe_dev->hw_info->stats_hw_info->num_stats_type;
 			i++) {
@@ -514,10 +506,11 @@ static int msm_isp_start_stats_stream(struct vfe_device *vfe_dev,
 			comp_stats_mask[stream_info->composite_flag-1] |=
 				1 << idx;
 
-		ISP_HW_DBG("%s: stats_mask %x %x active streams %d\n",
+		ISP_DBG("%s: stats_mask %x %x active streams %d\n",
 			__func__, comp_stats_mask[0],
 			comp_stats_mask[1],
 			stats_data->num_active_stream);
+
 	}
 
 	if (vfe_dev->axi_data.src_info[VFE_PIX_0].active) {
@@ -581,7 +574,7 @@ static int msm_isp_stop_stats_stream(struct vfe_device *vfe_dev,
 			comp_stats_mask[stream_info->composite_flag-1] |=
 				1 << idx;
 
-		ISP_HW_DBG("%s: stats_mask %x %x active streams %d\n",
+		ISP_DBG("%s: stats_mask %x %x active streams %d\n",
 			__func__, comp_stats_mask[0],
 			comp_stats_mask[1],
 			stats_data->num_active_stream);

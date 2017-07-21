@@ -91,7 +91,6 @@ extern pgprot_t pgprot_default;
 #define __PAGE_READONLY		__pgprot(_PAGE_DEFAULT | PTE_USER | PTE_NG | PTE_PXN | PTE_UXN)
 #define __PAGE_READONLY_EXEC	__pgprot(_PAGE_DEFAULT | PTE_USER | PTE_NG | PTE_PXN)
 
-
 #endif /* __ASSEMBLY__ */
 
 #define __P000  __PAGE_NONE

@@ -26,6 +26,14 @@
 #include <linux/workqueue.h>
 #include <linux/freezer.h>
 
+#ifdef CONFIG_YL_POWEROFF_ALARM
+#include <linux/yl_params.h>
+
+#define YL_PARAM_BUF_SZ		512
+#endif
+
+#define ALARM_DELTA 120
+
 /**
  * struct alarm_base - Alarm timer bases
  * @lock:		Lock for syncrhonized access to the base
@@ -54,8 +62,43 @@ static struct rtc_device	*rtcdev;
 static DEFINE_SPINLOCK(rtcdev_lock);
 static unsigned long power_on_alarm;
 static struct mutex power_on_alarm_lock;
-#ifdef CONFIG_HUAWEI_KERNEL
-#define ALARM_DELTA 60
+
+#ifdef CONFIG_YL_POWEROFF_ALARM
+static int set_yl_power_on_alarm(struct rtc_wkalrm *alarm)
+{
+	int rc;
+	unsigned long secs;
+	u8 value[4] = {0};
+	u8 param_buf[YL_PARAM_BUF_SZ] = "RETURNZERO";
+
+	if (alarm) {
+		rtc_tm_to_time(&alarm->time, &secs);
+
+		value[0] = secs & 0xFF;
+		value[1] = (secs >> 8) & 0xFF;
+		value[2] = (secs >> 16) & 0xFF;
+		value[3] = (secs >> 24) & 0xFF;
+	}
+
+	rc = yl_params_kernel_read(param_buf, YL_PARAM_BUF_SZ);
+	if (rc != YL_PARAM_BUF_SZ) {
+		return -EFAULT;
+	}
+
+	if (alarm) {
+		param_buf[RETURNZERO_ALARM_ASSIGNED] = 1;
+	} else {
+		param_buf[RETURNZERO_ALARM_ASSIGNED] = 0;
+	}
+	memcpy(&param_buf[RETURNZERO_ALARM_TIME], value, 4);
+
+	rc = yl_params_kernel_write(param_buf, YL_PARAM_BUF_SZ);
+	if (rc != YL_PARAM_BUF_SZ) {
+		return -EFAULT;
+	}
+
+	return 0;
+}
 #endif
 
 void set_power_on_alarm(long secs, bool enable)
@@ -73,6 +116,9 @@ void set_power_on_alarm(long secs, bool enable)
 	if (enable) {
 			power_on_alarm = secs;
 	} else {
+#ifdef CONFIG_YL_POWEROFF_ALARM
+		set_yl_power_on_alarm(NULL);
+#endif
 		if (power_on_alarm == secs)
 			power_on_alarm = 0;
 		else
@@ -86,17 +132,16 @@ void set_power_on_alarm(long secs, bool enable)
 	getnstimeofday(&wall_time);
 	rtc_tm_to_time(&rtc_time, &rtc_secs);
 	alarm_delta = wall_time.tv_sec - rtc_secs;
-	#ifdef CONFIG_HUAWEI_KERNEL
-	alarm_time = power_on_alarm - alarm_delta - ALARM_DELTA;
-	#else
 	alarm_time = power_on_alarm - alarm_delta;
-	#endif
+
 	/*
 	 *Substract ALARM_DELTA from actual alarm time
 	 *to power up the device before actual alarm
 	 *expiration
 	 */
-	if (alarm_time <= rtc_secs)
+	if ((alarm_time - ALARM_DELTA) > rtc_secs)
+		alarm_time -= ALARM_DELTA;
+	else
 		goto disable_alarm;
 
 	rtc_time_to_tm(alarm_time, &alarm.time);
@@ -104,6 +149,12 @@ void set_power_on_alarm(long secs, bool enable)
 	rc = rtc_set_alarm(rtcdev, &alarm);
 	if (rc)
 		goto disable_alarm;
+
+#ifdef CONFIG_YL_POWEROFF_ALARM
+	rc = set_yl_power_on_alarm(&alarm);
+	if (rc)
+		goto disable_alarm;
+#endif
 
 	mutex_unlock(&power_on_alarm_lock);
 	return;
@@ -249,6 +300,7 @@ static void alarmtimer_dequeue(struct alarm_base *base, struct alarm *alarm)
 	timerqueue_del(&base->timerqueue, &alarm->node);
 	alarm->state &= ~ALARMTIMER_STATE_ENQUEUED;
 }
+
 
 /**
  * alarmtimer_fired - Handles alarm hrtimer being fired.
@@ -396,6 +448,7 @@ static void alarmtimer_freezerset(ktime_t absexp, enum alarmtimer_type type)
 	spin_unlock_irqrestore(&freezer_delta_lock, flags);
 }
 
+
 /**
  * alarm_init - Initialize an alarm structure
  * @alarm: ptr to alarm to be initialized
@@ -490,6 +543,7 @@ int alarm_try_to_cancel(struct alarm *alarm)
 	return ret;
 }
 
+
 /**
  * alarm_cancel - Spins trying to cancel an alarm timer until it is done
  * @alarm: ptr to alarm to be canceled
@@ -505,6 +559,7 @@ int alarm_cancel(struct alarm *alarm)
 		cpu_relax();
 	}
 }
+
 
 u64 alarm_forward(struct alarm *alarm, ktime_t now, ktime_t interval)
 {
@@ -543,6 +598,8 @@ u64 alarm_forward_now(struct alarm *alarm, ktime_t interval)
 
 	return alarm_forward(alarm, base->gettime(), interval);
 }
+
+
 
 /**
  * clock2alarm - helper that converts from clockid to alarmtypes
@@ -745,6 +802,7 @@ static int alarmtimer_do_nsleep(struct alarm *alarm, ktime_t absexp)
 	return (alarm->data == NULL);
 }
 
+
 /**
  * update_rmtp - Update remaining timespec value
  * @exp: expiration time
@@ -802,6 +860,7 @@ static long __sched alarm_timer_nsleep_restart(struct restart_block *restart)
 		if (ret <= 0)
 			goto out;
 	}
+
 
 	/* The other values in restart are already filled in */
 	ret = -ERESTART_RESTARTBLOCK;
@@ -870,6 +929,7 @@ static int alarm_timer_nsleep(const clockid_t which_clock, int flags,
 out:
 	return ret;
 }
+
 
 /* Suspend hook structures */
 static const struct dev_pm_ops alarmtimer_pm_ops = {

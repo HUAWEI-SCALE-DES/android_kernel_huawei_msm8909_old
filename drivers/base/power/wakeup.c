@@ -122,6 +122,15 @@ void wakeup_source_destroy(struct wakeup_source *ws)
 EXPORT_SYMBOL_GPL(wakeup_source_destroy);
 
 /**
+ * wakeup_source_destroy_cb
+ * defer processing until all rcu references have expired
+ */
+static void wakeup_source_destroy_cb(struct rcu_head *head)
+{
+	wakeup_source_destroy(container_of(head, struct wakeup_source, rcu));
+}
+
+/**
  * wakeup_source_add - Add given object to the list of wakeup sources.
  * @ws: Wakeup source object to add to the list.
  */
@@ -162,6 +171,26 @@ void wakeup_source_remove(struct wakeup_source *ws)
 EXPORT_SYMBOL_GPL(wakeup_source_remove);
 
 /**
+ * wakeup_source_remove_async - Remove given object from the wakeup sources
+ * list.
+ * @ws: Wakeup source object to remove from the list.
+ *
+ * Use only for wakeup source objects created with wakeup_source_create().
+ * Memory for ws must be freed via rcu.
+ */
+static void wakeup_source_remove_async(struct wakeup_source *ws)
+{
+	unsigned long flags;
+
+	if (WARN_ON(!ws))
+		return;
+
+	spin_lock_irqsave(&events_lock, flags);
+	list_del_rcu(&ws->entry);
+	spin_unlock_irqrestore(&events_lock, flags);
+}
+
+/**
  * wakeup_source_register - Create wakeup source and add it to the list.
  * @name: Name of the wakeup source to register.
  */
@@ -184,8 +213,8 @@ EXPORT_SYMBOL_GPL(wakeup_source_register);
 void wakeup_source_unregister(struct wakeup_source *ws)
 {
 	if (ws) {
-		wakeup_source_remove(ws);
-		wakeup_source_destroy(ws);
+		wakeup_source_remove_async(ws);
+		call_rcu(&ws->rcu, wakeup_source_destroy_cb);
 	}
 }
 EXPORT_SYMBOL_GPL(wakeup_source_unregister);
@@ -638,6 +667,7 @@ void __pm_wakeup_event(struct wakeup_source *ws, unsigned int msec)
 }
 EXPORT_SYMBOL_GPL(__pm_wakeup_event);
 
+
 /**
  * pm_wakeup_event - Notify the PM core of a wakeup event.
  * @dev: Device the wakeup event is related to.
@@ -854,60 +884,6 @@ static int print_wakeup_source_stats(struct seq_file *m,
 	return ret;
 }
 
-#ifdef CONFIG_HUAWEI_KERNEL
-/**
- * print_active_wakeup_source - Print active wakeup source statistics information.
- * @m: seq_file to print the statistics into.
- * @ws: Wakeup source object to print the statistics for.
- */
-static int print_active_wakeup_source(struct seq_file *m, struct wakeup_source *ws)
-{
-    unsigned long flags;
-    ktime_t total_time;
-    ktime_t max_time;
-    unsigned long active_count;
-    ktime_t active_time;
-    ktime_t prevent_sleep_time;
-    int ret = 0;
-
-    spin_lock_irqsave(&ws->lock, flags);
-
-    total_time = ws->total_time;
-    max_time = ws->max_time;
-    prevent_sleep_time = ws->prevent_sleep_time;
-    active_count = ws->active_count;
-    if (ws->active) {
-        ktime_t now = ktime_get();
-
-        active_time = ktime_sub(now, ws->last_time);
-        total_time = ktime_add(total_time, active_time);
-        if (active_time.tv64 > max_time.tv64)
-            max_time = active_time;
-
-        if (ws->autosleep_enabled)
-            prevent_sleep_time = ktime_add(prevent_sleep_time,
-                ktime_sub(now, ws->start_prevent_time));
-    } else {
-        active_time = ktime_set(0, 0);
-    }
-
-    if(ws->active)
-    {
-        ret = seq_printf(m, "Active resource: %-12s\t%lu\t\t%lu\t\t%lu\t\t%lu\t\t"
-                "%lld\t\t%lld\t\t%lld\t\t%lld\t\t%lld\n",
-                ws->name, active_count, ws->event_count,
-                ws->wakeup_count, ws->expire_count,
-                ktime_to_ms(active_time), ktime_to_ms(total_time),
-                ktime_to_ms(max_time), ktime_to_ms(ws->last_time),
-                ktime_to_ms(prevent_sleep_time));
-    }
-
-    spin_unlock_irqrestore(&ws->lock, flags);
-
-    return ret;
-}
-#endif
-
 /**
  * wakeup_sources_stats_show - Print wakeup sources statistics information.
  * @m: seq_file to print the statistics into.
@@ -923,10 +899,6 @@ static int wakeup_sources_stats_show(struct seq_file *m, void *unused)
 	rcu_read_lock();
 	list_for_each_entry_rcu(ws, &wakeup_sources, entry)
 		print_wakeup_source_stats(m, ws);
-#ifdef CONFIG_HUAWEI_KERNEL
-    list_for_each_entry_rcu(ws, &wakeup_sources, entry)
-        print_active_wakeup_source(m, ws);
-#endif
 	rcu_read_unlock();
 
 	return 0;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -92,12 +92,14 @@ static void add_to_ptable(unsigned int *arg)
 
 	if (!cpu_possible(cpu))
 		return;
+
 	if ((freq == 0) || (power == 0)) {
 		pr_warn("Incorrect power data\n");
 		return;
 	}
 
 	node = &per_cpu(c_dgfs, cpu);
+
 	if (node->len >= MAX_PSTATES) {
 		pr_warn("Dropped ptable update - no space left.\n");
 		return;
@@ -111,12 +113,11 @@ static void add_to_ptable(unsigned int *arg)
 			return;
 	}
 
-        for (i = 0; i < node->len; i++) {
-                if (node->head[i].freq == freq) {
-	            node->head[i].power = power;
-                    return;
+	for (i = 0; i < node->len; i++) {
+		if (node->head[i].freq == freq) {
+			node->head[i].power = power;
+			return;
 		}
-
 	}
 
 	/* Insert a new frequency (may need to move things around to
@@ -130,7 +131,7 @@ static void add_to_ptable(unsigned int *arg)
 		}
 	}
 
-        if (node->len < MAX_PSTATES) {
+	if (node->len < MAX_PSTATES) {
 		node->head[i].freq = freq;
 		node->head[i].power = power;
 		node->len++;
@@ -152,8 +153,8 @@ static int split_ptable_args(char *line, unsigned int *arg, uint32_t n)
 		args = strsep(&line, " ");
 		ret = kstrtouint(args, 10, &arg[i]);
 		if (ret)
-		return ret;
-             }
+			return ret;
+	}
 	return ret;
 }
 
@@ -214,8 +215,8 @@ static int msm_core_ptable_read(struct seq_file *m, void *data)
 			seq_printf(m, "--- CPU%d - Live numbers at %ldC---\n",
 			cpu, node->ptr->temp);
 			print_table(m, msm_core_data[cpu].ptable,
-                        node->driver_len);
-                }
+					node->driver_len);
+		}
 	}
 	return 0;
 }

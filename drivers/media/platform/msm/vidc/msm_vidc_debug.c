@@ -23,7 +23,6 @@ int msm_fw_debug_mode = 0x1;
 int msm_fw_low_power_mode = 0x1;
 int msm_vidc_hw_rsp_timeout = 1000;
 u32 msm_fw_coverage = 0x0;
-int msm_vidc_vpe_csc_601_to_709 = 0x0;
 int msm_vidc_dcvs_mode = 0x1;
 int msm_vidc_sys_idle_indicator = 0x0;
 u32 msm_vidc_firmware_unload_delay = 15000;
@@ -68,7 +67,9 @@ static ssize_t core_info_read(struct file *file, char __user *buf,
 {
 	struct msm_vidc_core *core = file->private_data;
 	struct hfi_device *hdev;
-	int i = 0;
+	struct hal_fw_info fw_info;
+	int i = 0, rc = 0;
+
 	if (!core || !core->device) {
 		dprintk(VIDC_ERR, "Invalid params, core: %pK\n", core);
 		return 0;
@@ -78,19 +79,20 @@ static ssize_t core_info_read(struct file *file, char __user *buf,
 	write_str(&dbg_buf, "===============================\n");
 	write_str(&dbg_buf, "CORE %d: 0x%pK\n", core->id, core);
 	write_str(&dbg_buf, "===============================\n");
-	write_str(&dbg_buf, "state: %d\n", core->state);
-	write_str(&dbg_buf, "base addr: 0x%x\n",
-		call_hfi_op(hdev, get_fw_info, hdev->hfi_device_data,
-					FW_BASE_ADDRESS));
-	write_str(&dbg_buf, "register_base: 0x%x\n",
-		call_hfi_op(hdev, get_fw_info, hdev->hfi_device_data,
-					FW_REGISTER_BASE));
-	write_str(&dbg_buf, "register_size: %u\n",
-		call_hfi_op(hdev, get_fw_info, hdev->hfi_device_data,
-					FW_REGISTER_SIZE));
-	write_str(&dbg_buf, "irq: %u\n",
-		call_hfi_op(hdev, get_fw_info, hdev->hfi_device_data,
-					FW_IRQ));
+	write_str(&dbg_buf, "Core state: %d\n", core->state);
+	rc = call_hfi_op(hdev, get_fw_info, hdev->hfi_device_data, &fw_info);
+	if (rc) {
+		dprintk(VIDC_WARN, "Failed to read FW info\n");
+		goto err_fw_info;
+	}
+
+	write_str(&dbg_buf, "FW version : %s\n", &fw_info.version);
+	write_str(&dbg_buf, "base addr: 0x%x\n", fw_info.base_addr);
+	write_str(&dbg_buf, "register_base: 0x%x\n", fw_info.register_base);
+	write_str(&dbg_buf, "register_size: %u\n", fw_info.register_size);
+	write_str(&dbg_buf, "irq: %u\n", fw_info.irq);
+
+err_fw_info:
 	for (i = SYS_MSG_START; i < SYS_MSG_END; i++) {
 		write_str(&dbg_buf, "completions[%d]: %s\n", i,
 			completion_done(&core->completions[SYS_MSG_INDEX(i)]) ?
@@ -177,11 +179,6 @@ struct dentry *msm_vidc_debugfs_init_drv(void)
 	}
 	if (!debugfs_create_u32("hw_rsp_timeout", S_IRUGO | S_IWUSR,
 			dir, &msm_vidc_hw_rsp_timeout)) {
-		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
-		goto failed_create_dir;
-	}
-	if (!debugfs_create_bool("enable_vpe_csc_601_709", S_IRUGO | S_IWUSR,
-			dir, &msm_vidc_vpe_csc_601_to_709)) {
 		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
 		goto failed_create_dir;
 	}

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -405,7 +405,7 @@ static int diag_process_single_dci_pkt(unsigned char *buf, int len,
 	uint8_t cmd_code = 0;
 
 	if (!buf || len < 0) {
-		pr_err("diag: Invalid input in %s, buf: %p, len: %d\n",
+		pr_err("diag: Invalid input in %s, buf: %pK, len: %d\n",
 			__func__, buf, len);
 		return -EIO;
 	}
@@ -749,7 +749,7 @@ static int diag_dci_remove_req_entry(unsigned char *buf, int len,
 {
 	uint16_t rsp_count = 0, delayed_rsp_id = 0;
 	if (!buf || len <= 0 || !entry) {
-		pr_err("diag: In %s, invalid input buf: %p, len: %d, entry: %p\n",
+		pr_err("diag: In %s, invalid input buf: %pK, len: %d, entry: %pK\n",
 			__func__, buf, len, entry);
 		return -EIO;
 	}
@@ -803,7 +803,7 @@ static void dci_process_ctrl_status(unsigned char *buf, int len, int token)
 	int peripheral_mask, status;
 
 	if (!buf || (len < sizeof(struct diag_ctrl_dci_status))) {
-		pr_err("diag: In %s, invalid buf %p or length: %d\n",
+		pr_err("diag: In %s, invalid buf %pK or length: %d\n",
 		       __func__, buf, len);
 		return;
 	}
@@ -1390,20 +1390,10 @@ static int diag_send_dci_pkt(struct diag_master_table entry,
 		pr_err("diag: dci: Invalid pkt len %d in %s\n", len, __func__);
 		return -EIO;
 	}
-	/* The first 4 bytes is the uid tag and the next four bytes is
-	   the minmum packet length of a request packet */
-	if (len < DCI_PKT_REQ_MIN_LEN) {
-		pr_err("diag: dci: Invalid pkt len %d in %s\n", len, __func__);
-		return -EIO;
-	}
 	if (len > APPS_BUF_SIZE - 10) {
 		pr_err("diag: dci: Invalid payload length in %s\n", __func__);
 		return -EIO;
 	}
-    /* remove UID from user space pkt before sending to peripheral*/
-    buf = buf + sizeof(int);
-    read_len += sizeof(int);
-    len = len - sizeof(int);
 	mutex_lock(&driver->dci_mutex);
 	/* prepare DCI packet */
 	driver->apps_dci_buf[0] = CONTROL_CHAR; /* start */
@@ -1692,6 +1682,10 @@ static int diag_dci_process_apps_pkt(struct diag_pkt_header_t *pkt_header,
 			write_len = sizeof(struct diag_pkt_header_t);
 			*(uint16_t *)(payload_ptr + write_len) = wrap_count;
 			write_len += sizeof(uint16_t);
+		} else if (ss_cmd_code == DIAG_EXT_MOBILE_ID) {
+			write_len = diag_cmd_get_mobile_id(req_buf, req_len,
+						   payload_ptr,
+						   APPS_BUF_SIZE - header_len);
 		}
 	}
 
@@ -1901,11 +1895,6 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 
 	/* This is Pkt request/response transaction */
 	if (*(int *)temp > 0) {
-		if (len < DCI_PKT_REQ_MIN_LEN || len > USER_SPACE_DATA) {
-			pr_err("diag: dci: Invalid length %d len in %s", len,
-								__func__);
-			return -EIO;
-		}
 		return diag_process_dci_pkt_rsp(buf, len);
 	} else if (*(int *)temp == DCI_LOG_TYPE) {
 		/* Minimum length of a log mask config is 12 + 2 bytes for
@@ -1948,7 +1937,7 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 								__func__);
 			return -ENOMEM;
 		}
-		pr_debug("diag: head of dci log mask %p\n", head_log_mask_ptr);
+		pr_debug("diag: head of dci log mask %pK\n", head_log_mask_ptr);
 		count = 0; /* iterator for extracting log codes */
 
 		while (count < num_codes) {
@@ -1976,7 +1965,7 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 			while (log_mask_ptr && (offset < DCI_LOG_MASK_SIZE)) {
 				if (*log_mask_ptr == equip_id) {
 					found = 1;
-					pr_debug("diag: find equip id = %x at %p\n",
+					pr_debug("diag: find equip id = %x at %pK\n",
 						 equip_id, log_mask_ptr);
 					break;
 				} else {
@@ -2054,7 +2043,7 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 								__func__);
 			return -ENOMEM;
 		}
-		pr_debug("diag: head of dci event mask %p\n", event_mask_ptr);
+		pr_debug("diag: head of dci event mask %pK\n", event_mask_ptr);
 		count = 0; /* iterator for extracting log codes */
 		while (count < num_codes) {
 			if (read_len >= USER_SPACE_DATA) {
@@ -3107,7 +3096,7 @@ int diag_dci_write_proc(int peripheral, int pkt_type, char *buf, int len)
 
 	if (!buf || (peripheral < 0 || peripheral >= NUM_SMD_DCI_CHANNELS)
 		|| !driver->rcvd_feature_mask[peripheral] || len < 0) {
-		pr_err("diag: In %s, invalid data 0x%p, peripheral: %d, len: %d\n",
+		pr_err("diag: In %s, invalid data 0x%pK, peripheral: %d, len: %d\n",
 				__func__, buf, peripheral, len);
 		return -EINVAL;
 	}

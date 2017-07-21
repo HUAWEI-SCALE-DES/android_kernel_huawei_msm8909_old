@@ -192,8 +192,13 @@ struct msm_gpio_set_tbl {
 };
 
 struct msm_camera_gpio_num_info {
+#ifdef CONFIG_MACH_SCALE
 	uint16_t gpio_num[13];
 	uint8_t valid[13];
+#else
+	uint16_t gpio_num[11];
+	uint8_t valid[11];
+#endif
 };
 
 struct msm_camera_gpio_conf {
@@ -410,6 +415,8 @@ struct msm_panel_common_pdata {
 	char mdp_iommu_split_domain;
 	u32 avtimer_phy;
 };
+
+
 
 struct lcdc_platform_data {
 	int (*lcdc_gpio_config)(int on);

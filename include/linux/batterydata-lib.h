@@ -138,22 +138,13 @@ struct bms_battery_data {
 	int			iterm_ua;
 	int			batt_id_kohm;
 	const char		*battery_type;
-#ifdef CONFIG_HUAWEI_KERNEL
-	int			warm_bat_decidegc;
-	int			warm_bat_chg_ma;
-	int			warm_bat_mv;
-	int			cool_bat_decidegc;
-	int			cool_bat_chg_ma;
-	int			cool_bat_mv;
-	int			cold_bat_decidegc;
-	int			hot_bat_decidegc;
-#endif
 };
 
 #if defined(CONFIG_PM8921_BMS) || \
 	defined(CONFIG_PM8921_BMS_MODULE) || \
 	defined(CONFIG_QPNP_BMS) || \
-	defined(CONFIG_QPNP_VM_BMS)
+	defined(CONFIG_QPNP_VM_BMS) || \
+	defined(CONFIG_QPNP_VM_BMS_HQ)
 extern struct bms_battery_data  palladium_1500_data;
 extern struct bms_battery_data  desay_5200_data;
 extern struct bms_battery_data  oem_batt_data;

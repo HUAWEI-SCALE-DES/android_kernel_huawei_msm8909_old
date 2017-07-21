@@ -97,6 +97,9 @@ struct msm_vfe_irq_ops {
 	void (*process_reg_update) (struct vfe_device *vfe_dev,
 		uint32_t irq_status0, uint32_t irq_status1,
 		struct msm_isp_timestamp *ts);
+	void (*process_epoch_irq)(struct vfe_device *vfe_dev,
+		uint32_t irq_status0, uint32_t irq_status1,
+		struct msm_isp_timestamp *ts);
 	void (*process_reset_irq) (struct vfe_device *vfe_dev,
 		uint32_t irq_status0, uint32_t irq_status1);
 	void (*process_halt_irq) (struct vfe_device *vfe_dev,
@@ -161,7 +164,7 @@ struct msm_vfe_axi_ops {
 };
 
 struct msm_vfe_core_ops {
-	void (*reg_update) (struct vfe_device *vfe_dev);
+	void (*reg_update) (struct vfe_device *vfe_dev, uint32_t input_src);
 	long (*reset_hw) (struct vfe_device *vfe_dev, uint32_t first_start,
 		uint32_t blocking_call);
 	int (*init_hw) (struct vfe_device *vfe_dev);
@@ -590,14 +593,6 @@ struct vfe_device {
 	uint32_t isp_sof_debug;
 	uint8_t reset_pending;
 	uint32_t bus_util_factor;
-/*  CASE ID: 02093470
-    Merge SBA MSM8909.LA.1.1.c4-011302102-STD.PROD-1.21861.1.22182.6 
-    PATCH_112440_SBAforTaskidCaseid_20150723.tar.gz 
-    1281366_0001-msm-isp-Update-tintless-configuration-support-for-VF.patch
-    */
-	uint8_t fullsize_stats;
-	uint32_t stats_hnum;
-	uint32_t stats_vnum;
 };
 
 #endif

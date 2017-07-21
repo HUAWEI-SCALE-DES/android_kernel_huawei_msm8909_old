@@ -306,7 +306,7 @@ static ssize_t rmidev_read(struct file *filp, char __user *buf,
 		count = REG_ADDR_LIMIT - *f_pos;
 
 	tmpbuf = kzalloc(count + 1, GFP_KERNEL);
-	if(!tmpbuf)
+	if (!tmpbuf)
 		return -ENOMEM;
 
 	mutex_lock(&(dev_data->file_mutex));
@@ -325,7 +325,6 @@ static ssize_t rmidev_read(struct file *filp, char __user *buf,
 
 clean_up:
 	mutex_unlock(&(dev_data->file_mutex));
-
 	kfree(tmpbuf);
 	return retval;
 }
@@ -375,7 +374,6 @@ static ssize_t rmidev_write(struct file *filp, const char __user *buf,
 		*f_pos += retval;
 
 	mutex_unlock(&(dev_data->file_mutex));
-
 	kfree(tmpbuf);
 	return retval;
 }

@@ -61,7 +61,7 @@ MODULE_DEVICE_TABLE(of, msm_match_table);
 #define MAX_QCA_REG				(116)
 /* will timeout in approx. 100ms as 10us steps */
 #define NFC_RF_CLK_FREQ			(19200000)
-#define NTF_TIMEOUT				(25)
+#define NTF_TIMEOUT				(100)
 #define	CORE_RESET_RSP_GID		(0x60)
 #define	CORE_RESET_OID			(0x00)
 #define CORE_RST_NTF_LENGTH		(0x02)
@@ -121,6 +121,8 @@ static int nfcc_initialise(struct i2c_client *client, unsigned short curr_addr,
 static int qca199x_clock_select(struct qca199x_dev *qca199x_dev);
 static int qca199x_clock_deselect(struct qca199x_dev *qca199x_dev);
 
+
+
 /*
  * To allow filtering of nfc logging from user. This is set via
  * IOCTL NFC_KERNEL_LOGGING_MODE.
@@ -132,6 +134,7 @@ static int logging_level;
 static struct devicemode	device_mode;
 static int					ftm_raw_write_mode;
 static int					ftm_werr_code;
+
 
 unsigned int	disable_ctrl;
 bool			region2_sent;
@@ -224,6 +227,7 @@ static void qca199x_disable_irq_clk_req(struct qca199x_dev *qca199x_dev)
 	spin_unlock_irqrestore(&qca199x_dev->irq_enabled_lock_clk_req, flags);
 }
 
+
 static void qca199x_enable_irq_clk_req(struct qca199x_dev *qca199x_dev)
 {
 	unsigned long flags;
@@ -235,6 +239,7 @@ static void qca199x_enable_irq_clk_req(struct qca199x_dev *qca199x_dev)
 	}
 	spin_unlock_irqrestore(&qca199x_dev->irq_enabled_lock_clk_req, flags);
 }
+
 
 static irqreturn_t qca199x_dev_irq_handler_clk_req(int irq, void *dev_id)
 {
@@ -844,6 +849,7 @@ int nfc_ioctl_nfcc_version(struct file *filp, unsigned int cmd,
 	curr_addr = qca199x_dev->client->addr;
 	qca199x_dev->client->addr = slave_addr;
 
+
 	if (r) {
 		dev_err(&qca199x_dev->client->dev,
 		"%s: nfcc wake failed: %d\n", __func__, r);
@@ -1195,6 +1201,7 @@ static int nfcc_initialise(struct i2c_client *client, unsigned short curr_addr,
 	if (r < 0)
 		goto err_init;
 
+
 	msleep(20);  /* 20ms wait */
 	/* LS_EN = 1 */
 	RAW(1P8_CONTROL_010, 0xF);
@@ -1499,6 +1506,7 @@ static int qca199x_probe(struct i2c_client *client,
 	 *
 	 */
 
+
 	if (gpio_is_valid(platform_data->dis_gpio)) {
 		r = gpio_request(platform_data->dis_gpio, "nfc_reset_gpio");
 		if (r) {
@@ -1675,6 +1683,7 @@ static int qca199x_probe(struct i2c_client *client,
 		goto err_misc_register;
 	}
 
+
 	/*
 	 * Reboot the NFCC now that all resources are ready
 	 *
@@ -1686,6 +1695,7 @@ static int qca199x_probe(struct i2c_client *client,
 	msleep(20);
 	gpio_set_value(platform_data->dis_gpio, 0);/* ULPM */
 	msleep(100);
+
 
 	/* Here we perform a second presence check. */
 	r = nfcc_hw_check(client, platform_data->reg);
@@ -1727,6 +1737,7 @@ static int qca199x_probe(struct i2c_client *client,
 		qca199x_dev->irq_enabled_clk_req = true;
 		qca199x_disable_irq_clk_req(qca199x_dev);
 
+
 	}
 	device_init_wakeup(&client->dev, true);
 	device_set_wakeup_capable(&client->dev, true);
@@ -1735,8 +1746,9 @@ static int qca199x_probe(struct i2c_client *client,
 
 	/* To keep track if region2 command has been sent to controller */
 	region2_sent = false;
-	dev_err(&client->dev,
-	"nfc-nci probe: %s, probing qca1990 exited successfully\n",
+
+	dev_dbg(&client->dev,
+	"%s: probing qca1990 exited successfully\n",
 		 __func__);
 	return 0;
 
@@ -1776,6 +1788,7 @@ err_free_dev:
 		dma_pool_destroy(qca199x_dev->nfc_dma_pool);
 		qca199x_dev->nfc_dma_pool = NULL;
 	}
+
 
 	kfree(qca199x_dev);
 
@@ -1854,6 +1867,7 @@ static struct i2c_driver qca199x = {
 		.pm = &nfc_pm_ops,
 	},
 };
+
 
 static int nfcc_reboot(struct notifier_block *notifier, unsigned long val,
 			  void *v)

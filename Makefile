@@ -91,6 +91,7 @@ endif
 # The O= assignment takes precedence over the KBUILD_OUTPUT environment
 # variable.
 
+
 # KBUILD_SRC is set on invocation of make in OBJ directory
 # KBUILD_SRC is not intended to be used by the regular user (for now)
 ifeq ($(KBUILD_SRC),)
@@ -156,6 +157,7 @@ obj		:= $(objtree)
 VPATH		:= $(srctree)$(if $(KBUILD_EXTMOD),:$(KBUILD_EXTMOD))
 
 export srctree objtree VPATH
+
 
 # SUBARCH tells the usermode build what the underlying arch is.  That is set
 # first, and if a usermode build is happening, the "ARCH=um" on the command
@@ -312,6 +314,7 @@ endif
 
 export quiet Q KBUILD_VERBOSE
 
+
 # Look for make include files relative to root of kernel src
 MAKEFLAGS += --include-dir=$(srctree)
 
@@ -350,15 +353,12 @@ CFLAGS_KERNEL	=
 AFLAGS_KERNEL	=
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
-#Define macro to control the compile
-ifeq ($(HIDE_PRODUCT_INFO),true)
-	CFLAGS_KERNEL += -DHIDE_PRODUCT_INFO_KERNEL
-endif
 
 # Use USERINCLUDE when you must reference the UAPI directories only.
 USERINCLUDE    := \
 		-I$(srctree)/arch/$(hdr-arch)/include/uapi \
 		-Iarch/$(hdr-arch)/include/generated/uapi \
+		-I$(srctree)/drivers/soc/qcom \
 		-I$(srctree)/include/uapi \
 		-Iinclude/generated/uapi \
                 -include $(srctree)/include/linux/kconfig.h
@@ -703,6 +703,9 @@ ifeq ($(CONFIG_STRIP_ASM_SYMS),y)
 LDFLAGS_vmlinux	+= $(call ld-option, -X,)
 endif
 
+LDFLAGS_vmlinux += $(call ld-option, --fix-cortex-a53-843419)
+LDFLAGS_MODULE += $(call ld-option, --fix-cortex-a53-843419)
+
 # Default kernel image to build when no specific target is given.
 # KBUILD_IMAGE may be overruled on the command line or
 # set in the environment
@@ -741,6 +744,7 @@ mod_strip_cmd = true
 endif # INSTALL_MOD_STRIP
 export mod_strip_cmd
 
+
 ifdef CONFIG_MODULE_SIG_ALL
 MODSECKEY = ./signing_key.priv
 MODPUBKEY = ./signing_key.x509
@@ -750,6 +754,7 @@ else
 mod_sign_cmd = true
 endif
 export mod_sign_cmd
+
 
 ifeq ($(KBUILD_EXTMOD),)
 core-y		+= kernel/ mm/ fs/ ipc/ security/ crypto/ block/
@@ -817,6 +822,7 @@ $(vmlinux-dirs): prepare scripts
 include/config/kernel.release: include/config/auto.conf FORCE
 	$(Q)rm -f $@
 	$(Q)echo "$(KERNELVERSION)$$($(CONFIG_SHELL) $(srctree)/scripts/setlocalversion $(srctree))" > $@
+
 
 # Things we need to do before we recursively start building the kernel
 # or the modules are listed in "prepare".
@@ -972,6 +978,7 @@ modules.builtin: $(vmlinux-dirs:%=%/modules.builtin)
 %/modules.builtin: include/config/auto.conf
 	$(Q)$(MAKE) $(modbuiltin)=$*
 
+
 # Target to prepare building external modules
 PHONY += modules_prepare
 modules_prepare: prepare scripts
@@ -1083,6 +1090,7 @@ distclean: mrproper
 		-o -name '*%' -o -name '.*.cmd' -o -name 'core' \) \
 		-type f -print | xargs rm -f
 
+
 # Packaging of the kernel to various formats
 # ---------------------------------------------------------------------------
 # rpm target kept for backward compatibility
@@ -1094,6 +1102,7 @@ package-dir	:= $(srctree)/scripts/package
 	$(Q)$(MAKE) $(build)=$(package-dir) $@
 rpm: include/config/kernel.release FORCE
 	$(Q)$(MAKE) $(build)=$(package-dir) $@
+
 
 # Brief documentation of the typical targets used
 # ---------------------------------------------------------------------------
@@ -1179,6 +1188,7 @@ help:
 	@echo  'Execute "make" or "make all" to build all targets marked with [*] '
 	@echo  'For further info see the ./README file'
 
+
 help-board-dirs := $(addprefix help-,$(board-dirs))
 
 help-boards: $(help-board-dirs)
@@ -1191,6 +1201,7 @@ $(help-board-dirs): help-%:
 		$(foreach b, $(boards-per-dir), \
 		printf "  %-24s - Build for %s\\n" $*/$(b) $(subst _defconfig,,$(b));) \
 		echo '')
+
 
 # Documentation targets
 # ---------------------------------------------------------------------------

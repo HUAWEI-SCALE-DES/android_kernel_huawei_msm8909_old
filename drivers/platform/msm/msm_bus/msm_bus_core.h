@@ -19,7 +19,6 @@
 #include <linux/platform_device.h>
 #include <linux/msm-bus-board.h>
 #include <linux/msm-bus.h>
-#include <linux/time.h>
 
 #define MSM_BUS_DBG(msg, ...) \
 	pr_debug(msg, ## __VA_ARGS__)

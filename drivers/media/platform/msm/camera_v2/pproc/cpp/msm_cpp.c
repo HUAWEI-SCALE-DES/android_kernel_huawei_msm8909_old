@@ -12,6 +12,7 @@
 
 #define pr_fmt(fmt) "MSM-CPP %s:%d " fmt, __func__, __LINE__
 
+
 #include <linux/delay.h>
 #include <linux/clk.h>
 #include <linux/firmware.h>
@@ -65,6 +66,7 @@
 #define STRIPE_BASE_FW_1_6_0	464
 #define STRIPE_BASE_FW_1_8_0	493
 
+
 /* dump the frame command before writing to the hardware */
 #define  MSM_CPP_DUMP_FRM_CMD 0
 
@@ -115,6 +117,8 @@ static struct msm_bus_vectors msm_cpp_pong_vectors[] = {
 		.ib  = 0,
 	},
 };
+
+
 
 static struct msm_bus_paths msm_cpp_bus_client_config[] = {
 	{
@@ -272,6 +276,7 @@ static int get_clock_index(const char *clk_name)
 	}
 	return -EINVAL;
 }
+
 
 static int msm_cpp_notify_frame_done(struct cpp_device *cpp_dev,
 	uint8_t put_buf);
@@ -1055,7 +1060,7 @@ static void cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
 		rc = request_firmware(&fw, fw_name_bin, dev);
 		if (rc) {
 			dev_err(dev,
-				"Fail to loc blob %s from dev %pK, Error: %d\n",
+				"Fail to loc blob %s from dev %p, Error: %d\n",
 				fw_name_bin, dev, rc);
 		}
 		if (NULL != fw)
@@ -1132,13 +1137,13 @@ static int cpp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	CPP_DBG("E\n");
 
 	if (!sd || !fh) {
-		pr_err("Wrong input parameters sd %pK fh %pK!",
+		pr_err("Wrong input parameters sd %p fh %p!",
 			sd, fh);
 		return -EINVAL;
 	}
 	cpp_dev = v4l2_get_subdevdata(sd);
 	if (!cpp_dev) {
-		pr_err("failed: cpp_dev %pK\n", cpp_dev);
+		pr_err("failed: cpp_dev %p\n", cpp_dev);
 		return -EINVAL;
 	}
 	mutex_lock(&cpp_dev->mutex);
@@ -1161,7 +1166,7 @@ static int cpp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		return -ENODEV;
 	}
 
-	CPP_DBG("open %d %pK\n", i, &fh->vfh);
+	CPP_DBG("open %d %p\n", i, &fh->vfh);
 	cpp_dev->cpp_open_cnt++;
 	if (cpp_dev->cpp_open_cnt == 1) {
 		rc = cpp_init_hardware(cpp_dev);
@@ -1194,7 +1199,7 @@ static int cpp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	cpp_dev =  v4l2_get_subdevdata(sd);
 
 	if (!cpp_dev) {
-		pr_err("failed: cpp_dev %pK\n", cpp_dev);
+		pr_err("failed: cpp_dev %p\n", cpp_dev);
 		return -EINVAL;
 	}
 
@@ -1405,13 +1410,14 @@ static int msm_cpp_dump_frame_cmd(struct msm_cpp_frame_info_t *frame_info)
 }
 #endif
 
+
 static void msm_cpp_do_timeout_work(struct work_struct *work)
 {
 
 	pr_info("cpp_timer_callback called. (jiffies=%lu)\n",
 		jiffies);
 	if (!work || cpp_timer.data.cpp_dev->state != CPP_STATE_ACTIVE) {
-		pr_err("Invalid work:%pK or state:%d\n", work,
+		pr_err("Invalid work:%p or state:%d\n", work,
 			cpp_timer.data.cpp_dev->state);
 		return;
 	}
@@ -1615,7 +1621,8 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 			&buff_mgr_info);
 		if (rc < 0) {
 			rc = -EAGAIN;
-			CPP_DBG("error getting buffer rc:%d\n", rc);
+			pr_debug("%s: error getting buffer rc:%d\n",
+				 __func__, rc);
 			goto frame_msg_err;
 		}
 		new_frame->output_buffer_info[0].index = buff_mgr_info.index;
@@ -1649,7 +1656,8 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 			&dup_buff_mgr_info);
 		if (rc < 0) {
 			rc = -EAGAIN;
-			CPP_DBG("error getting buffer rc:%d\n", rc);
+			pr_debug("%s: error getting buffer rc:%d\n",
+				__func__, rc);
 			goto phyaddr_err;
 		}
 		new_frame->output_buffer_info[1].index =
@@ -1840,7 +1848,8 @@ static int msm_cpp_copy_from_ioctl_ptr(void *dst_ptr,
 {
 	int ret;
 	if ((ioctl_ptr->ioctl_ptr == NULL) || (ioctl_ptr->len == 0)) {
-		pr_err("Wrong ioctl_ptr %pK\n", ioctl_ptr);
+		pr_err("%s: Wrong ioctl_ptr %p / len %zu\n", __func__,
+			ioctl_ptr, ioctl_ptr->len);
 		return -EINVAL;
 	}
 
@@ -1861,6 +1870,11 @@ static int msm_cpp_copy_from_ioctl_ptr(void *dst_ptr,
 	struct msm_camera_v4l2_ioctl_t *ioctl_ptr)
 {
 	int ret;
+	if ((ioctl_ptr->ioctl_ptr == NULL) || (ioctl_ptr->len == 0)) {
+		pr_err("%s: Wrong ioctl_ptr %p / len %zu\n", __func__,
+			ioctl_ptr, ioctl_ptr->len);
+		return -EINVAL;
+	}
 
 	ret = copy_from_user(dst_ptr,
 		(void __user *)ioctl_ptr->ioctl_ptr, ioctl_ptr->len);
@@ -1878,11 +1892,16 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 	struct msm_camera_v4l2_ioctl_t *ioctl_ptr = arg;
 	int rc = 0;
 
-	if ((sd == NULL) || (ioctl_ptr == NULL) ||
-		(ioctl_ptr->ioctl_ptr == NULL)) {
-		pr_err("Wrong ioctl_ptr %pK, sd %pK\n", ioctl_ptr, sd);
+	if ((sd == NULL) || (ioctl_ptr == NULL)) {
+		pr_err("Wrong ioctl_ptr %p, sd %p\n", ioctl_ptr, sd);
 		return -EINVAL;
 	}
+
+	if (_IOC_DIR(cmd) == _IOC_NONE) {
+		pr_err("Invalid ioctl/subdev cmd %u", cmd);
+		return -EINVAL;
+	}
+
 	cpp_dev = v4l2_get_subdevdata(sd);
 	if (cpp_dev == NULL) {
 		pr_err("cpp_dev is null\n");
@@ -1925,8 +1944,9 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 			}
 			if (ioctl_ptr->ioctl_ptr == NULL) {
 				pr_err("ioctl_ptr->ioctl_ptr=NULL\n");
-				mutex_unlock(&cpp_dev->mutex);
 				kfree(cpp_dev->fw_name_bin);
+				cpp_dev->fw_name_bin = NULL;
+				mutex_unlock(&cpp_dev->mutex);
 				return -EINVAL;
 			}
 			rc = (copy_from_user(cpp_dev->fw_name_bin,
@@ -2055,8 +2075,7 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 		uint32_t identity;
 		struct msm_cpp_buff_queue_info_t *buff_queue_info;
 		CPP_DBG("VIDIOC_MSM_CPP_DEQUEUE_STREAM_BUFF_INFO\n");
-		if ((ioctl_ptr->len == 0) ||
-		    (ioctl_ptr->len > sizeof(uint32_t))) {
+		if (ioctl_ptr->len != sizeof(uint32_t)) {
 			mutex_unlock(&cpp_dev->mutex);
 			return -EINVAL;
 		}
@@ -2217,6 +2236,10 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 		struct msm_pproc_queue_buf_info queue_buf_info;
 		CPP_DBG("VIDIOC_MSM_CPP_QUEUE_BUF\n");
 
+		if (ioctl_ptr->len != sizeof(struct msm_pproc_queue_buf_info)) {
+			pr_err("%s: Not valid ioctl_ptr->len\n", __func__);
+			return -EINVAL;
+		}
 		rc = msm_cpp_copy_from_ioctl_ptr(&queue_buf_info, ioctl_ptr);
 		if (rc) {
 			ERR_COPY_FROM_USER();
@@ -2242,15 +2265,19 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 	case VIDIOC_MSM_CPP_POP_STREAM_BUFFER: {
 		struct msm_buf_mngr_info buff_mgr_info;
 		struct msm_cpp_frame_info_t frame_info;
-		if (ioctl_ptr->ioctl_ptr == NULL)
+		if (ioctl_ptr->ioctl_ptr == NULL ||
+			(ioctl_ptr->len !=
+			sizeof(struct msm_cpp_frame_info_t))) {
 			rc = -EINVAL;
-		rc = (copy_from_user(&frame_info,
-			(void __user *)ioctl_ptr->ioctl_ptr,
-			sizeof(struct msm_cpp_frame_info_t)) ? -EFAULT : 0);
+			break;
+		}
+
+		rc = msm_cpp_copy_from_ioctl_ptr(&frame_info, ioctl_ptr);
 		if (rc) {
 			ERR_COPY_FROM_USER();
 			break;
 		}
+
 		memset(&buff_mgr_info, 0, sizeof(struct msm_buf_mngr_info));
 		buff_mgr_info.session_id =
 			((frame_info.identity >> 16) & 0xFFFF);
@@ -2341,14 +2368,14 @@ static long msm_cpp_subdev_do_ioctl(
 	struct v4l2_fh *vfh = NULL;
 
 	if ((arg == NULL) || (file == NULL)) {
-		pr_err("Invalid input parameters arg %pK, file %pK\n", arg, file);
+		pr_err("Invalid input parameters arg %p, file %p\n", arg, file);
 		return -EINVAL;
 	}
 	vdev = video_devdata(file);
 	sd = vdev_to_v4l2_subdev(vdev);
 
 	if (sd == NULL) {
-		pr_err("Invalid input parameter sd %pK\n", sd);
+		pr_err("Invalid input parameter sd %p\n", sd);
 		return -EINVAL;
 	}
 	vfh = file->private_data;
@@ -2397,6 +2424,7 @@ static long msm_cpp_subdev_fops_ioctl(struct file *file, unsigned int cmd,
 {
 	return video_usercopy(file, cmd, arg, msm_cpp_subdev_do_ioctl);
 }
+
 
 #ifdef CONFIG_COMPAT
 static struct msm_cpp_frame_info_t *get_64bit_cpp_frame_from_compat(
@@ -2551,6 +2579,8 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 	struct msm_cpp_clock_settings_t clock_settings;
 	struct msm_pproc_queue_buf_info k_queue_buf;
 	struct msm_cpp_stream_buff_info_t k_cpp_buff_info;
+	struct msm_cpp_frame_info32_t k32_frame_info;
+	struct msm_cpp_frame_info_t k64_frame_info;
 	void __user *up = (void __user *)arg;
 
 	if (sd == NULL) {
@@ -2559,7 +2589,7 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 	}
 	cpp_dev = v4l2_get_subdevdata(sd);
 	if (!vdev || !cpp_dev) {
-		pr_err("Invalid vdev %pK or cpp_dev %pK structures!",
+		pr_err("Invalid vdev %p or cpp_dev %p structures!",
 			vdev, cpp_dev);
 		return -EINVAL;
 	}
@@ -2717,14 +2747,18 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 		}
 		process_frame = event_qcmd->command;
 
+		memset(&k32_process_frame, 0, sizeof(k32_process_frame));
 		get_compat_frame_from_64bit(process_frame, &k32_process_frame);
 
 		CPP_DBG("fid %d\n", process_frame->frame_id);
 		if (copy_to_user((void __user *)kp_ioctl.ioctl_ptr,
-				&k32_process_frame,
-				sizeof(struct msm_cpp_frame_info32_t))) {
-					mutex_unlock(&cpp_dev->mutex);
-					return -EINVAL;
+			&k32_process_frame,
+			sizeof(struct msm_cpp_frame_info32_t))) {
+			kfree(process_frame->cpp_cmd_msg);
+			kfree(process_frame);
+			kfree(event_qcmd);
+			mutex_unlock(&cpp_dev->mutex);
+			return -EINVAL;
 		}
 
 		kfree(process_frame->cpp_cmd_msg);
@@ -2778,8 +2812,25 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 		break;
 	}
 	case VIDIOC_MSM_CPP_POP_STREAM_BUFFER32:
+	{
+		if (kp_ioctl.len != sizeof(struct msm_cpp_frame_info32_t))
+			return -EINVAL;
+		else
+			kp_ioctl.len = sizeof(struct msm_cpp_frame_info_t);
+
+		if (copy_from_user(&k32_frame_info,
+			(void __user *)kp_ioctl.ioctl_ptr,
+			sizeof(k32_frame_info)))
+			return -EFAULT;
+
+		memset(&k64_frame_info, 0, sizeof(k64_frame_info));
+		k64_frame_info.identity = k32_frame_info.identity;
+		k64_frame_info.frame_id = k32_frame_info.frame_id;
+
+		kp_ioctl.ioctl_ptr = (void *)&k64_frame_info;
 		cmd = VIDIOC_MSM_CPP_POP_STREAM_BUFFER;
 		break;
+	}
 	case VIDIOC_MSM_CPP_IOMMU_ATTACH32:
 		cmd = VIDIOC_MSM_CPP_IOMMU_ATTACH;
 		break;

@@ -66,6 +66,7 @@ static struct cma_area {
 } cma_areas[MAX_CMA_AREAS];
 static unsigned cma_area_count;
 
+
 static struct cma_map {
 	phys_addr_t base;
 	struct device *dev;
@@ -94,33 +95,7 @@ static struct cma *cma_get_area_by_name(const char *name)
 	return NULL;
 }
 
-#ifdef CONFIG_HUAWEI_KERNEL
-unsigned long cma_get_base_by_name(const char *name)
-{
-    int i;
-    if (!name)
-        return 0;
 
-    for (i = 0; i < cma_area_count; i++)
-        if (cma_areas[i].name && strcmp(cma_areas[i].name, name) == 0)
-            return (unsigned long)(cma_areas[i].base);
-    return 0;
-}
-EXPORT_SYMBOL(cma_get_base_by_name);
-
-unsigned long cma_get_size_by_name(const char *name)
-{
-    int i;
-    if (!name)
-        return 0;
-
-    for (i = 0; i < cma_area_count; i++)
-        if (cma_areas[i].name && strcmp(cma_areas[i].name, name) == 0)
-            return cma_areas[i].size;
-    return 0;
-}
-EXPORT_SYMBOL(cma_get_size_by_name);
-#endif
 
 #ifdef CONFIG_CMA_SIZE_MBYTES
 #define CMA_SIZE_MBYTES CONFIG_CMA_SIZE_MBYTES
@@ -388,7 +363,11 @@ void __init dma_contiguous_reserve(phys_addr_t limit)
 	}
 
 	if (sel_size) {
+#ifdef CONFIG_MACH_T86519A1
+		phys_addr_t base = 0x00000000b4c00000;
+#else
 		phys_addr_t base = 0;
+#endif
 		pr_debug("%s: reserving %ld MiB for global area\n", __func__,
 			 (unsigned long)sel_size / SZ_1M);
 
@@ -478,6 +457,7 @@ int __init dma_contiguous_reserve_area(phys_addr_t size, phys_addr_t *res_base,
 	cma_areas[cma_area_count].to_system = to_system;
 	cma_area_count++;
 	*res_base = base;
+
 
 	/* Architecture specific contiguous memory fixup. */
 	if (!remove && base)
@@ -613,7 +593,7 @@ static void clear_cma_bitmap(struct cma *cma, unsigned long pfn, int count)
  * global one. Requires architecture specific get_dev_cma_area() helper
  * function.
  */
-unsigned long dma_alloc_from_contiguous(struct device *dev, int count,
+unsigned long dma_alloc_from_contiguous(struct device *dev, size_t count,
 				       unsigned int align)
 {
 	unsigned long mask, pfn = 0, pageno, start = 0;
@@ -628,13 +608,14 @@ unsigned long dma_alloc_from_contiguous(struct device *dev, int count,
 	if (align > CONFIG_CMA_ALIGNMENT)
 		align = CONFIG_CMA_ALIGNMENT;
 
-	pr_debug("%s(cma %p, count %d, align %d)\n", __func__, (void *)cma,
+	pr_debug("%s(cma %pK, count %zu, align %d)\n", __func__, (void *)cma,
 		 count, align);
 
 	if (!count)
 		return 0;
 
 	mask = (1 << align) - 1;
+
 
 	for (;;) {
 		mutex_lock(&cma->lock);

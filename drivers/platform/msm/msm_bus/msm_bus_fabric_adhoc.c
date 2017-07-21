@@ -23,7 +23,7 @@
 #include "msm_bus_adhoc.h"
 #include "msm_bus_noc.h"
 #include "msm_bus_bimc.h"
-extern struct timespec bus_req_ts[4];
+
 struct static_rules_type {
 	int num_rules;
 	struct bus_rule_type *rules;
@@ -203,8 +203,6 @@ static int flush_bw_data(struct device *node_device, int ctx)
 		ret = -ENODEV;
 		goto exit_flush_bw_data;
 	}
-	
-	bus_req_ts[1] = current_kernel_time();
 
 	if (node_info->node_ab.dirty) {
 		if (node_info->ap_owned) {
@@ -231,7 +229,6 @@ static int flush_bw_data(struct device *node_device, int ctx)
 		node_info->node_ab.dirty = false;
 	}
 
-	bus_req_ts[2] = current_kernel_time();
 exit_flush_bw_data:
 	return ret;
 

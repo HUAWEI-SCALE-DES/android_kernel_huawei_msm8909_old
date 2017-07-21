@@ -129,11 +129,6 @@
 
 #include	"slab.h"
 
-#ifdef CONFIG_DUMP_SLAB_INFO
-#include <linux/module.h>
-#include <linux/srecorder.h>
-#endif
-
 /*
  * DEBUG	- 1 for kmem_cache_create() to honour; SLAB_RED_ZONE & SLAB_POISON.
  *		  0 for faster, smaller code (especially in the critical paths).
@@ -635,20 +630,6 @@ static void slab_set_debugobj_lock_classes_node(struct kmem_cache *cachep, int n
 static void slab_set_debugobj_lock_classes(struct kmem_cache *cachep)
 {
 }
-#endif
-
-#ifdef CONFIG_DUMP_SLAB_INFO
-unsigned long get_slab_mutex(void)
-{
-    return (unsigned long)&slab_mutex;
-}
-EXPORT_SYMBOL(get_slab_mutex);
-
-unsigned long get_slab_caches(void)
-{
-    return (unsigned long)&slab_caches;
-}
-EXPORT_SYMBOL(get_slab_caches);
 #endif
 
 static DEFINE_PER_CPU(struct delayed_work, slab_reap_work);
@@ -3752,6 +3733,7 @@ static __always_inline void *__do_kmalloc(size_t size, gfp_t flags,
 
 	return ret;
 }
+
 
 #if defined(CONFIG_DEBUG_SLAB) || defined(CONFIG_TRACING)
 void *__kmalloc(size_t size, gfp_t flags)

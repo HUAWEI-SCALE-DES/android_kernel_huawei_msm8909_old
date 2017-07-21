@@ -6,6 +6,7 @@ DESCRIPTION:
          This file defines log print interface by driver group's and Android-Log-v2 regulation
          of HUAWEI
 DateTime: 2014/07/16 
+Author:  wanglili
         Copyright 2014 HUAWEI.
         All Rights Reserved.           
 =============================================================================*/

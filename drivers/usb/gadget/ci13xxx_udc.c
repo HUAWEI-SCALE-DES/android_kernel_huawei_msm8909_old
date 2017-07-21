@@ -432,6 +432,7 @@ static int hw_device_state(u32 dma)
 
 		hw_cwrite(CAP_ENDPTLISTADDR, ~0, dma);
 
+
 		/* Set BIT(31) to enable AHB2AHB Bypass functionality */
 		if (udc->udc_driver->flags & CI13XXX_ENABLE_AHB2AHB_BYPASS) {
 			hw_awrite(ABS_AHBMODE, AHB2AHB_BYPASS, AHB2AHB_BYPASS);
@@ -1010,6 +1011,7 @@ static void dbg_inc(unsigned *idx)
 {
 	*idx = (*idx + 1) & (DBG_DATA_MAX-1);
 }
+
 
 static unsigned int ep_addr_txdbg_mask;
 module_param(ep_addr_txdbg_mask, uint, S_IRUGO | S_IWUSR);
@@ -1927,6 +1929,7 @@ static void ep_prime_timer_func(unsigned long data)
 	int n = hw_ep_bit(mep->num, mep->dir);
 	unsigned long flags;
 
+
 	spin_lock_irqsave(mep->lock, flags);
 
 	if (_udc && (!_udc->vbus_active || _udc->suspended)) {
@@ -2512,12 +2515,7 @@ __acquires(udc->lock)
 
 	/*stop charging upon reset */
 	if (udc->transceiver)
-#ifdef CONFIG_HUAWEI_KERNEL
-		/*in order to support D+ ground, D- hung up non-standard charger,modify the current value */
-		usb_phy_set_power(udc->transceiver, 500);
-#else
 		usb_phy_set_power(udc->transceiver, 100);
-#endif
 
 	retval = _gadget_stop_activity(&udc->gadget);
 	if (retval)

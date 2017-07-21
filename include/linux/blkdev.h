@@ -974,10 +974,6 @@ struct request_queue *blk_alloc_queue(gfp_t);
 struct request_queue *blk_alloc_queue_node(gfp_t, int);
 extern void blk_put_queue(struct request_queue *);
 
-#ifdef CONFIG_HW_SYSTEM_WR_PROTECT
-extern int blk_set_ro_secure_debuggable(int index);
-#endif
-
 /*
  * block layer runtime pm functions
  */
@@ -1573,6 +1569,7 @@ static inline void blk_flush_plug(struct task_struct *task)
 static inline void blk_schedule_flush_plug(struct task_struct *task)
 {
 }
+
 
 static inline bool blk_needs_flush_plug(struct task_struct *tsk)
 {

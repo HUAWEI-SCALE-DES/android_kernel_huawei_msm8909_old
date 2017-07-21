@@ -65,10 +65,6 @@
 
 #include <asm/uaccess.h>
 #include <asm/processor.h>
-#ifdef CONFIG_HUAWEI_KERNEL
-#include <linux/qpnp/power-on.h>
-extern u32 huawei_pon_regs[MAX_REG_TYPE];
-#endif
 
 #ifdef CONFIG_X86
 #include <asm/nmi.h>
@@ -95,6 +91,7 @@ extern u32 huawei_pon_regs[MAX_REG_TYPE];
 #include <linux/nmi.h>
 #endif
 
+
 #if defined(CONFIG_SYSCTL)
 
 /* External variables not in a header file. */
@@ -102,9 +99,6 @@ extern int sysctl_overcommit_memory;
 extern int sysctl_overcommit_ratio;
 extern int max_threads;
 extern int suid_dumpable;
-#ifdef CONFIG_HUAWEI_DIRECT_SWAPPINESS
-extern int direct_vm_swappiness;
-#endif
 #ifdef CONFIG_COREDUMP
 extern int core_uses_pid;
 extern char core_pattern[];
@@ -137,9 +131,6 @@ static int __maybe_unused two = 2;
 static int __maybe_unused three = 3;
 static unsigned long one_ul = 1;
 static int one_hundred = 100;
-#ifdef CONFIG_HUAWEI_DIRECT_SWAPPINESS
-static int two_hundred = 200;
-#endif
 #ifdef CONFIG_PRINTK
 static int ten_thousand = 10000;
 #endif
@@ -316,14 +307,16 @@ static struct ctl_table kern_table[] = {
 		.data		= &sysctl_sched_freq_inc_notify,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
-		.proc_handler	= proc_dointvec,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= &zero,
 	},
 	{
 		.procname	= "sched_freq_dec_notify",
 		.data		= &sysctl_sched_freq_dec_notify,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
-		.proc_handler	= proc_dointvec,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= &zero,
 	},
 	{
 		.procname       = "sched_migration_fixup",
@@ -402,7 +395,8 @@ static struct ctl_table kern_table[] = {
 		.data		= &sysctl_sched_spill_nr_run,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
-		.proc_handler	= proc_dointvec,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= &zero,
 	},
 	{
 		.procname	= "sched_upmigrate",
@@ -957,17 +951,6 @@ static struct ctl_table kern_table[] = {
 		.extra1		= &zero,
 		.extra2		= &two,
 	},
-
-#ifdef CONFIG_HUAWEI_KERNEL
-	{
-		.procname	= "huawei_flow_level",
-		.data		= &KERNEL_HWFLOW,
-		.maxlen		= sizeof(int),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec,
-	},
-#endif
-
 #endif
 	{
 		.procname	= "ngroups_max",
@@ -1392,23 +1375,8 @@ static struct ctl_table vm_table[] = {
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec_minmax,
 		.extra1		= &zero,
-#ifdef CONFIG_HUAWEI_DIRECT_SWAPPINESS
-		.extra2		= &two_hundred,
-#else
 		.extra2		= &one_hundred,
-#endif
 	},
-#ifdef CONFIG_HUAWEI_DIRECT_SWAPPINESS
-	{
-		.procname	= "direct_swappiness",
-		.data		= &direct_vm_swappiness,
-		.maxlen		= sizeof(direct_vm_swappiness),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec_minmax,
-		.extra1		= &zero,
-		.extra2		= &two_hundred,
-	},
-#endif
 #ifdef CONFIG_HUGETLB_PAGE
 	{
 		.procname	= "nr_hugepages",
@@ -1690,6 +1658,28 @@ static struct ctl_table vm_table[] = {
 		.mode		= 0644,
 		.proc_handler	= proc_doulongvec_minmax,
 	},
+#ifdef CONFIG_HAVE_ARCH_MMAP_RND_BITS
+	{
+		.procname	= "mmap_rnd_bits",
+		.data		= &mmap_rnd_bits,
+		.maxlen		= sizeof(mmap_rnd_bits),
+		.mode		= 0600,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= (void *)&mmap_rnd_bits_min,
+		.extra2		= (void *)&mmap_rnd_bits_max,
+	},
+#endif
+#ifdef CONFIG_HAVE_ARCH_MMAP_RND_COMPAT_BITS
+	{
+		.procname	= "mmap_rnd_compat_bits",
+		.data		= &mmap_rnd_compat_bits,
+		.maxlen		= sizeof(mmap_rnd_compat_bits),
+		.mode		= 0600,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= (void *)&mmap_rnd_compat_bits_min,
+		.extra2		= (void *)&mmap_rnd_compat_bits_max,
+	},
+#endif
 	{ }
 };
 
@@ -1863,6 +1853,20 @@ static struct ctl_table fs_table[] = {
 		.proc_handler	= &pipe_proc_fn,
 		.extra1		= &pipe_min_size,
 	},
+	{
+		.procname	= "pipe-user-pages-hard",
+		.data		= &pipe_user_pages_hard,
+		.maxlen		= sizeof(pipe_user_pages_hard),
+		.mode		= 0644,
+		.proc_handler	= proc_doulongvec_minmax,
+	},
+	{
+		.procname	= "pipe-user-pages-soft",
+		.data		= &pipe_user_pages_soft,
+		.maxlen		= sizeof(pipe_user_pages_soft),
+		.mode		= 0644,
+		.proc_handler	= proc_doulongvec_minmax,
+	},
 	{ }
 };
 
@@ -1887,15 +1891,6 @@ static struct ctl_table debug_table[] = {
 		.extra2		= &one,
 	},
 #endif
-#ifdef CONFIG_HUAWEI_KERNEL
-    {
-            .procname   = "poweronoff_reason",
-            .data       = huawei_pon_regs,
-            .maxlen     = sizeof(huawei_pon_regs),
-            .mode       = 0644,
-            .proc_handler   = proc_dointvec,
-    },
-#endif	
 	{ }
 };
 
@@ -2535,6 +2530,7 @@ int proc_doulongvec_ms_jiffies_minmax(struct ctl_table *table, int write,
 				     lenp, ppos, HZ, 1000l);
 }
 
+
 static int do_proc_dointvec_jiffies_conv(bool *negp, unsigned long *lvalp,
 					 int *valp,
 					 int write, void *data)
@@ -2889,6 +2885,7 @@ int proc_doulongvec_ms_jiffies_minmax(struct ctl_table *table, int write,
 {
     return -ENOSYS;
 }
+
 
 #endif /* CONFIG_PROC_SYSCTL */
 

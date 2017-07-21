@@ -22,16 +22,14 @@
 #include "msm_cci.h"
 #include "msm_cam_cci_hwreg.h"
 #include "msm_camera_io_util.h"
-#ifdef CONFIG_HUAWEI_DSM
-#include "msm_camera_dsm.h"
-#endif
 
 #define V4L2_IDENT_CCI 50005
 #define CCI_I2C_QUEUE_0_SIZE 64
 #define CCI_I2C_QUEUE_1_SIZE 16
 #define CYCLES_PER_MICRO_SEC_DEFAULT 4915
-#define CCI_MAX_DELAY 20000
-#define CCI_TIMEOUT msecs_to_jiffies(900)
+#define CCI_MAX_DELAY 1000000
+
+#define CCI_TIMEOUT msecs_to_jiffies(100)
 
 /* TODO move this somewhere else */
 #define MSM_CCI_DRV_NAME "msm_cci"
@@ -49,15 +47,21 @@ static struct v4l2_subdev *g_cci_subdev;
 
 static struct msm_cam_clk_info cci_clk_info[CCI_NUM_CLK_MAX];
 
-static void msm_cci_set_clk_param(struct cci_device *cci_dev,
+static int32_t msm_cci_set_clk_param(struct cci_device *cci_dev,
 	struct msm_camera_cci_ctrl *c_ctrl)
 {
 	struct msm_cci_clk_params_t *clk_params = NULL;
 	enum cci_i2c_master_t master = c_ctrl->cci_info->cci_i2c_master;
 	enum i2c_freq_mode_t i2c_freq_mode = c_ctrl->cci_info->i2c_freq_mode;
+	int32_t rc = 0;
 
+	if ((i2c_freq_mode >= I2C_MAX_MODES) || (i2c_freq_mode < 0)) {
+		pr_err("%s:%d Invalid i2c_freq_mode =%d\n",
+			__func__, __LINE__, i2c_freq_mode);
+		return -EINVAL;
+	}
 	if (cci_dev->master_clk_init[master])
-		return;
+		return rc;
 	clk_params = &cci_dev->cci_clk_params[i2c_freq_mode];
 
 	if (MASTER_0 == master) {
@@ -92,7 +96,7 @@ static void msm_cci_set_clk_param(struct cci_device *cci_dev,
 			cci_dev->base + CCI_I2C_M1_MISC_CTL_ADDR);
 	}
 	cci_dev->master_clk_init[master] = 1;
-	return;
+	return rc;
 }
 
 static void msm_cci_flush_queue(struct cci_device *cci_dev,
@@ -469,7 +473,7 @@ static int32_t msm_cci_i2c_read_bytes(struct v4l2_subdev *sd,
 	uint16_t read_bytes = 0;
 
 	if (!sd || !c_ctrl) {
-		pr_err("%s:%d sd %pK c_ctrl %pK\n", __func__,
+		pr_err("%s:%d sd %p c_ctrl %p\n", __func__,
 			__LINE__, sd, c_ctrl);
 		return -EINVAL;
 	}
@@ -685,7 +689,7 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 
 	cci_dev = v4l2_get_subdevdata(sd);
 	if (!cci_dev || !c_ctrl) {
-		pr_err("%s:%d failed: invalid params %pK %pK\n", __func__,
+		pr_err("%s:%d failed: invalid params %p %p\n", __func__,
 			__LINE__, cci_dev, c_ctrl);
 		rc = -ENOMEM;
 		return rc;
@@ -694,7 +698,12 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 		CDBG("%s ref_count %d\n", __func__, cci_dev->ref_count);
 		master = c_ctrl->cci_info->cci_i2c_master;
 		CDBG("%s:%d master %d\n", __func__, __LINE__, master);
-		msm_cci_set_clk_param(cci_dev, c_ctrl);
+		rc = msm_cci_set_clk_param(cci_dev, c_ctrl);
+		if (rc < 0) {
+			pr_err("%s:%d msm_cci_set_clk_parm failed rc = %d\n",
+				__func__, __LINE__, rc);
+			return rc;
+		}
 		if (master < MASTER_MAX && master >= 0) {
 			mutex_lock(&cci_dev->cci_master_info[master].mutex);
 			/* Set reset pending flag to TRUE */
@@ -779,7 +788,13 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 	}
 	for (i = 0; i < MASTER_MAX; i++)
 		cci_dev->master_clk_init[i] = 0;
-	msm_cci_set_clk_param(cci_dev, c_ctrl);
+	rc = msm_cci_set_clk_param(cci_dev, c_ctrl);
+	if (rc < 0) {
+		pr_err("%s:%d msm_cci_set_clk_parm failed rc = %d\n",
+			__func__, __LINE__, rc);
+		return rc;
+	}
+
 	msm_camera_io_w_mb(CCI_IRQ_MASK_0_RMSK,
 		cci_dev->base + CCI_IRQ_MASK_0_ADDR);
 	msm_camera_io_w_mb(CCI_IRQ_MASK_0_RMSK,
@@ -853,56 +868,11 @@ static int32_t msm_cci_release(struct v4l2_subdev *sd)
 
 	return 0;
 }
-#ifdef CONFIG_HUAWEI_DSM
-static char camera_cci_dsm_log_buff[MSM_CAMERA_DSM_BUFFER_SIZE] = {0};
-static int print_cci_info(struct v4l2_subdev *sd, struct msm_camera_cci_ctrl *cci_ctrl)
-{
-	int len = 0;
-	struct cci_device *cci_dev;
-	enum cci_i2c_master_t master;
-
-	master = cci_ctrl->cci_info->cci_i2c_master;
-	cci_dev = v4l2_get_subdevdata(sd);
-
-	memset(camera_cci_dsm_log_buff, 0, MSM_CAMERA_DSM_BUFFER_SIZE);
-	len += snprintf(camera_cci_dsm_log_buff, MSM_CAMERA_DSM_BUFFER_SIZE,
-					" cci status: %d cmd: %d sid: 0x%x\n",
-					cci_ctrl->status, cci_ctrl->cmd, cci_ctrl->cci_info->sid);
-	if ((len < 0) || (len >= MSM_CAMERA_DSM_BUFFER_SIZE -1))
-	{
-		pr_err("%s %d cci_dsm_log_buff fail\n",__func__, __LINE__);
-		return -1;
-	}
-	len += snprintf(camera_cci_dsm_log_buff+len, MSM_CAMERA_DSM_BUFFER_SIZE-len,
-					" ref_count: %d state: %d reset_pending: %d\n",
-					cci_dev->ref_count, cci_dev->cci_state, cci_dev->cci_master_info[master].reset_pending);
-	if ((len < 0) || (len >= MSM_CAMERA_DSM_BUFFER_SIZE -1))
-	{
-		pr_err("%s %d cci_dsm_log_buff fail\n",__func__, __LINE__);
-		return -1;
-	}
-	len += snprintf(camera_cci_dsm_log_buff+len, MSM_CAMERA_DSM_BUFFER_SIZE-len,
-			" CCI_IRQ_CLEAR_0_ADDR:\t\t%x\t%x\n CCI_IRQ_STATUS_0_ADDR:\t\t%x\t%x\n CCI_IRQ_GLOBAL_CLEAR_CMD_ADDR:\t\t%x\t%x\n",
-					CCI_IRQ_CLEAR_0_ADDR, msm_camera_io_r_mb(cci_dev->base + CCI_IRQ_CLEAR_0_ADDR),
-					CCI_IRQ_STATUS_0_ADDR, msm_camera_io_r_mb(cci_dev->base + CCI_IRQ_STATUS_0_ADDR),
-					CCI_IRQ_GLOBAL_CLEAR_CMD_ADDR, msm_camera_io_r_mb(cci_dev->base + CCI_IRQ_GLOBAL_CLEAR_CMD_ADDR));
-	if ((len < 0) || (len >= MSM_CAMERA_DSM_BUFFER_SIZE -1))
-	{
-		pr_err("%s %d cci_dsm_log_buff fail\n",__func__, __LINE__);
-		return -1;
-	}
-
-	return len;
-}
-#endif
 
 static int32_t msm_cci_config(struct v4l2_subdev *sd,
 	struct msm_camera_cci_ctrl *cci_ctrl)
 {
 	int32_t rc = 0;
-#ifdef CONFIG_HUAWEI_DSM
-	int dsm_rc = 0;
-#endif
 	CDBG("%s line %d cmd %d\n", __func__, __LINE__,
 		cci_ctrl->cmd);
 	switch (cci_ctrl->cmd) {
@@ -924,18 +894,6 @@ static int32_t msm_cci_config(struct v4l2_subdev *sd,
 		rc = -ENOIOCTLCMD;
 	}
 	CDBG("%s line %d rc %d\n", __func__, __LINE__, rc);
-#ifdef CONFIG_HUAWEI_DSM
-	if ((rc < 0) && ((MSM_CCI_I2C_READ == cci_ctrl->cmd) || (MSM_CCI_I2C_WRITE == cci_ctrl->cmd)) && (camera_is_closing != 1) && (camera_is_in_probe != 1))
-	{
-		dsm_rc = print_cci_info(sd, cci_ctrl);
-		if (dsm_rc < 0)
-			pr_err("%s. cci dsm print error\n",__func__);
-
-		dsm_rc = camera_report_dsm_err(DSM_CAMERA_I2C_ERR, rc, camera_cci_dsm_log_buff);
-		if (dsm_rc < 0)
-			pr_err("%s. cci dsm report error\n",__func__);
-	}
-#endif
 	cci_ctrl->status = rc;
 	return rc;
 }
@@ -1321,7 +1279,7 @@ static int msm_cci_probe(struct platform_device *pdev)
 {
 	struct cci_device *new_cci_dev;
 	int rc = 0;
-	CDBG("%s: pdev %pK device id = %d\n", __func__, pdev, pdev->id);
+	CDBG("%s: pdev %p device id = %d\n", __func__, pdev, pdev->id);
 	new_cci_dev = kzalloc(sizeof(struct cci_device), GFP_KERNEL);
 	if (!new_cci_dev) {
 		CDBG("%s: no enough memory\n", __func__);
@@ -1333,7 +1291,7 @@ static int msm_cci_probe(struct platform_device *pdev)
 			ARRAY_SIZE(new_cci_dev->msm_sd.sd.name), "msm_cci");
 	v4l2_set_subdevdata(&new_cci_dev->msm_sd.sd, new_cci_dev);
 	platform_set_drvdata(pdev, &new_cci_dev->msm_sd.sd);
-	CDBG("%s sd %pK\n", __func__, &new_cci_dev->msm_sd.sd);
+	CDBG("%s sd %p\n", __func__, &new_cci_dev->msm_sd.sd);
 	if (pdev->dev.of_node)
 		of_property_read_u32((&pdev->dev)->of_node,
 			"cell-index", &pdev->id);
@@ -1398,7 +1356,7 @@ static int msm_cci_probe(struct platform_device *pdev)
 		pr_err("%s: failed to add child nodes, rc=%d\n", __func__, rc);
 	new_cci_dev->cci_state = CCI_STATE_DISABLED;
 	g_cci_subdev = &new_cci_dev->msm_sd.sd;
-	CDBG("%s cci subdev %pK\n", __func__, &new_cci_dev->msm_sd.sd);
+	CDBG("%s cci subdev %p\n", __func__, &new_cci_dev->msm_sd.sd);
 	CDBG("%s line %d\n", __func__, __LINE__);
 	return 0;
 

@@ -1,4 +1,3 @@
-
 #
 # Makefile for factory info devices
 #

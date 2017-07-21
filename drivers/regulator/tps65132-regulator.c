@@ -154,6 +154,7 @@ static int tps65132_regulator_enable(struct regulator_dev *rdev)
 static int tps65132_regulator_get_voltage(struct regulator_dev *rdev)
 {
 	struct tps65132_regulator *vreg = rdev_get_drvdata(rdev);
+#ifndef CONFIG_MACH_T86519A1
 	int rc, val;
 
 	if (!rdev->regmap) {
@@ -177,23 +178,16 @@ static int tps65132_regulator_get_voltage(struct regulator_dev *rdev)
 		vreg->curr_uV = (val & TPS65132_VOLTAGE_MASK) *
 			TPS65132_VOLTAGE_STEP + TPS65132_VOLTAGE_MIN;
 	}
-
+#endif
 	return vreg->curr_uV;
 }
 
 static int tps65132_regulator_set_voltage(struct regulator_dev *rdev,
 		int min_uV, int max_uV, unsigned *selector)
 {
-#ifndef CONFIG_HUAWEI_LCD
 	struct tps65132_regulator *vreg = rdev_get_drvdata(rdev);
 	int val, new_uV, rc;
-#endif
 
-#ifdef CONFIG_HUAWEI_LCD
-	return 0;
-#endif
-
-#ifndef CONFIG_HUAWEI_LCD
 	if (!rdev->regmap) {
 		pr_err("regmap not found\n");
 		return -EINVAL;
@@ -223,7 +217,6 @@ static int tps65132_regulator_set_voltage(struct regulator_dev *rdev,
 	*selector = val;
 
 	return 0;
-#endif
 }
 
 static int tps65132_regulator_list_voltage(struct regulator_dev *rdev,

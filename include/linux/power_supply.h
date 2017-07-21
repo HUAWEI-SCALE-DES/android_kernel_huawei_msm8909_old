@@ -87,6 +87,19 @@ enum {
 	POWER_SUPPLY_SCOPE_DEVICE,
 };
 
+enum {
+	POWER_SUPPLY_DP_DM_UNKNOWN = 0,
+	POWER_SUPPLY_DP_DM_PREPARE = 1,
+	POWER_SUPPLY_DP_DM_UNPREPARE = 2,
+	POWER_SUPPLY_DP_DM_CONFIRMED_HVDCP3 = 3,
+	POWER_SUPPLY_DP_DM_DP_PULSE = 4,
+	POWER_SUPPLY_DP_DM_DM_PULSE = 5,
+	POWER_SUPPLY_DP_DM_DP0P6_DMF = 6,
+	POWER_SUPPLY_DP_DM_DP0P6_DM3P3 = 7,
+	POWER_SUPPLY_DP_DM_DPF_DMF = 8,
+	POWER_SUPPLY_DP_DM_DPR_DMR = 9,
+};
+
 enum power_supply_property {
 	/* Properties of type `int' */
 	POWER_SUPPLY_PROP_STATUS = 0,
@@ -95,16 +108,10 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_AUTHENTIC,
+	POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED,
 	POWER_SUPPLY_PROP_CHARGING_ENABLED,
-#ifdef CONFIG_HUAWEI_KERNEL
-	POWER_SUPPLY_PROP_FACTORY_DIAG,
-	POWER_SUPPLY_PROP_HOT_IBAT_LIMIT,
-#endif
 	POWER_SUPPLY_PROP_TECHNOLOGY,
 	POWER_SUPPLY_PROP_CYCLE_COUNT,
-#ifdef CONFIG_HUAWEI_KERNEL
-    POWER_SUPPLY_PROP_BMS_LOG,
-#endif
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_VOLTAGE_MIN,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
@@ -163,9 +170,6 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_TYPE, /* use power_supply.type instead */
 	POWER_SUPPLY_PROP_SCOPE,
 	POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL,
-#ifdef CONFIG_HUAWEI_KERNEL
-	POWER_SUPPLY_PROP_RUNNING_TEST_STATUS,
-#endif
 	POWER_SUPPLY_PROP_RESISTANCE,
 	POWER_SUPPLY_PROP_RESISTANCE_CAPACITIVE,
 	/* unit is in ohms due to ID being typically in kohm range */
@@ -175,10 +179,13 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_USB_HC,
 	POWER_SUPPLY_PROP_USB_OTG,
 	POWER_SUPPLY_PROP_CHARGE_ENABLED,
-#ifdef CONFIG_HUAWEI_KERNEL
-	POWER_SUPPLY_PROP_RESUME_CHARGING,
-#endif	
 	POWER_SUPPLY_PROP_FLASH_CURRENT_MAX,
+	POWER_SUPPLY_PROP_UPDATE_NOW,
+	POWER_SUPPLY_PROP_ESR_COUNT,
+	POWER_SUPPLY_PROP_DP_DM,
+	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED,
+	POWER_SUPPLY_PROP_IGNORE_FALSE_NEGATIVE_ISENSE,
+	POWER_SUPPLY_PROP_ENABLE_JEITA_DETECTION,
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_PROP_CHARGE_COUNTER_EXT,
 	/* Properties of type `const char *' */
@@ -186,8 +193,8 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_MANUFACTURER,
 	POWER_SUPPLY_PROP_SERIAL_NUMBER,
 	POWER_SUPPLY_PROP_BATTERY_TYPE,
-#ifdef CONFIG_HUAWEI_KERNEL
-	POWER_SUPPLY_PROP_CHARGE_LOG,
+#ifdef CONFIG_MACH_YULONG
+	POWER_SUPPLY_PROP_YL_CRTL_CHG_INTERFACE,
 #endif
 };
 
@@ -200,8 +207,13 @@ enum power_supply_type {
 	POWER_SUPPLY_TYPE_USB_DCP,	/* Dedicated Charging Port */
 	POWER_SUPPLY_TYPE_USB_CDP,	/* Charging Downstream Port */
 	POWER_SUPPLY_TYPE_USB_ACA,	/* Accessory Charger Adapters */
+	POWER_SUPPLY_TYPE_USB_HVDCP,	/* High Voltage DCP */
+	POWER_SUPPLY_TYPE_USB_HVDCP_3,  /* Efficient High Voltage DCP */
 	POWER_SUPPLY_TYPE_WIRELESS,	/* Accessory Charger Adapters */
 	POWER_SUPPLY_TYPE_BMS,		/* Battery Monitor System */
+#ifdef CONFIG_MACH_YULONG
+	POWER_SUPPLY_TYPE_YL_BATTERY,	/* yulong add for yl_adc_battery */
+#endif
 	POWER_SUPPLY_TYPE_USB_PARALLEL,		/* USB Parallel Path */
 };
 
@@ -301,6 +313,8 @@ extern int power_supply_set_supply_type(struct power_supply *psy,
 extern int power_supply_set_hi_power_state(struct power_supply *psy, int value);
 extern int power_supply_set_low_power_state(struct power_supply *psy,
 							int value);
+extern int power_supply_set_dp_dm(struct power_supply *psy,
+							int value);
 extern int power_supply_is_system_supplied(void);
 extern int power_supply_register(struct device *parent,
 				 struct power_supply *psy);
@@ -344,6 +358,9 @@ static inline int power_supply_set_hi_power_state(struct power_supply *psy,
 							int value)
 							{ return -ENOSYS; }
 static inline int power_supply_set_low_power_state(struct power_supply *psy,
+							int value)
+							{ return -ENOSYS; }
+static inline int power_supply_set_dp_dm(struct power_supply *psy,
 							int value)
 							{ return -ENOSYS; }
 static inline int power_supply_is_system_supplied(void) { return -ENOSYS; }

@@ -36,6 +36,7 @@
 #include <linux/lockdep.h>
 #include "internal.h"
 
+
 LIST_HEAD(super_blocks);
 DEFINE_SPINLOCK(sb_lock);
 
@@ -277,6 +278,7 @@ static void put_super(struct super_block *sb)
 	__put_super(sb);
 	spin_unlock(&sb_lock);
 }
+
 
 /**
  *	deactivate_locked_super	-	drop an active reference to superblock
@@ -691,7 +693,8 @@ rescan:
 }
 
 /**
- *	do_remount_sb - asks filesystem to change mount options.
+ *	do_remount_sb2 - asks filesystem to change mount options.
+ *	@mnt:   mount we are looking at
  *	@sb:	superblock in question
  *	@flags:	numeric part of options
  *	@data:	the rest of options
@@ -699,7 +702,7 @@ rescan:
  *
  *	Alters the mount options of a mounted file system.
  */
-int do_remount_sb(struct super_block *sb, int flags, void *data, int force)
+int do_remount_sb2(struct vfsmount *mnt, struct super_block *sb, int flags, void *data, int force)
 {
 	int retval;
 	int remount_ro;
@@ -732,7 +735,16 @@ int do_remount_sb(struct super_block *sb, int flags, void *data, int force)
 
 	sync_filesystem(sb);
 
-	if (sb->s_op->remount_fs) {
+	if (mnt && sb->s_op->remount_fs2) {
+		retval = sb->s_op->remount_fs2(mnt, sb, &flags, data);
+		if (retval) {
+			if (!force)
+				goto cancel_readonly;
+			/* If forced remount, go ahead despite any errors */
+			WARN(1, "forced remount of a %s fs returned %i\n",
+			     sb->s_type->name, retval);
+		}
+	} else if (sb->s_op->remount_fs) {
 		retval = sb->s_op->remount_fs(sb, &flags, data);
 		if (retval) {
 			if (!force)
@@ -762,6 +774,11 @@ int do_remount_sb(struct super_block *sb, int flags, void *data, int force)
 cancel_readonly:
 	sb->s_readonly_remount = 0;
 	return retval;
+}
+
+int do_remount_sb(struct super_block *sb, int flags, void *data, int force)
+{
+	return do_remount_sb2(NULL, sb, flags, data, force);
 }
 
 static void do_emergency_remount(struct work_struct *work)
@@ -795,16 +812,9 @@ static void do_emergency_remount(struct work_struct *work)
 	printk("Emergency Remount complete\n");
 }
 
-#ifdef CONFIG_HW_SYSTEM_WR_PROTECT
-extern int blk_set_ro_secure_debuggable(int state);
-#endif
-
 void emergency_remount(void)
 {
 	struct work_struct *work;
-#ifdef CONFIG_HW_SYSTEM_WR_PROTECT
-	blk_set_ro_secure_debuggable(0);
-#endif
 
 	work = kmalloc(sizeof(*work), GFP_ATOMIC);
 	if (work) {
@@ -1090,7 +1100,7 @@ struct dentry *mount_single(struct file_system_type *fs_type,
 EXPORT_SYMBOL(mount_single);
 
 struct dentry *
-mount_fs(struct file_system_type *type, int flags, const char *name, void *data)
+mount_fs(struct file_system_type *type, int flags, const char *name, struct vfsmount *mnt, void *data)
 {
 	struct dentry *root;
 	struct super_block *sb;
@@ -1107,7 +1117,10 @@ mount_fs(struct file_system_type *type, int flags, const char *name, void *data)
 			goto out_free_secdata;
 	}
 
-	root = type->mount(type, flags, name, data);
+	if (type->mount2)
+		root = type->mount2(mnt, type, flags, name, data);
+	else
+		root = type->mount(type, flags, name, data);
 	if (IS_ERR(root)) {
 		error = PTR_ERR(root);
 		goto out_free_secdata;
@@ -1350,8 +1363,8 @@ int freeze_super(struct super_block *sb)
 		}
 	}
 	/*
-	 * This is just for debugging purposes so that fs can warn if it
-	 * sees write activity when frozen is set to SB_FREEZE_COMPLETE.
+	 * For debugging purposes so that fs can warn if it sees write activity
+	 * when frozen is set to SB_FREEZE_COMPLETE, and for thaw_super().
 	 */
 	sb->s_writers.frozen = SB_FREEZE_COMPLETE;
 	up_write(&sb->s_umount);
@@ -1370,7 +1383,7 @@ int thaw_super(struct super_block *sb)
 	int error;
 
 	down_write(&sb->s_umount);
-	if (sb->s_writers.frozen == SB_UNFROZEN) {
+	if (sb->s_writers.frozen != SB_FREEZE_COMPLETE) {
 		up_write(&sb->s_umount);
 		return -EINVAL;
 	}

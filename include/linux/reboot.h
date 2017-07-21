@@ -1,6 +1,7 @@
 #ifndef _LINUX_REBOOT_H
 #define _LINUX_REBOOT_H
 
+
 #include <linux/notifier.h>
 #include <uapi/linux/reboot.h>
 
@@ -20,14 +21,6 @@ enum reboot_mode {
 extern int register_reboot_notifier(struct notifier_block *);
 extern int unregister_reboot_notifier(struct notifier_block *);
 
-#ifdef CONFIG_SRECORDER
-#ifdef CONFIG_POWERCOLLAPSE
-#ifndef CONFIG_KPROBES
-extern int register_emergency_reboot_notifier(struct notifier_block *);
-extern int unregister_emergency_reboot_notifier(struct notifier_block *);
-#endif
-#endif
-#endif /* CONFIG_SRECORDER */
 
 /*
  * Architecture-specific implementations of sys_reboot commands.

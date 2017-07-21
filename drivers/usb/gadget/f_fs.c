@@ -14,6 +14,7 @@
  * (at your option) any later version.
  */
 
+
 /* #define DEBUG */
 /* #define VERBOSE_DEBUG */
 
@@ -26,7 +27,9 @@
 #include <linux/usb/composite.h>
 #include <linux/usb/functionfs.h>
 
+
 #define FUNCTIONFS_MAGIC	0xa647361 /* Chosen by a honest dice roll ;) */
+
 
 /* Debugging ****************************************************************/
 
@@ -44,6 +47,7 @@
 #endif /* VERBOSE_DEBUG */
 
 #define ENTER()    pr_vdebug("%s()\n", __func__)
+
 
 /* The data structure and setup file ****************************************/
 
@@ -84,6 +88,7 @@ enum ffs_state {
 	FFS_CLOSING
 };
 
+
 enum ffs_setup_state {
 	/* There is no setup request pending. */
 	FFS_NO_SETUP,
@@ -101,6 +106,8 @@ enum ffs_setup_state {
 	 */
 	FFS_SETUP_CANCELED
 };
+
+
 
 struct ffs_epfile;
 struct ffs_function;
@@ -253,6 +260,7 @@ __ffs_data_got_descs(struct ffs_data *ffs, char *data, size_t len);
 static int __must_check
 __ffs_data_got_strings(struct ffs_data *ffs, char *data, size_t len);
 
+
 /* The function structure ***************************************************/
 
 struct ffs_ep;
@@ -268,6 +276,7 @@ struct ffs_function {
 
 	struct usb_function		function;
 };
+
 
 static struct ffs_function *ffs_func_from_usb(struct usb_function *f)
 {
@@ -290,8 +299,10 @@ static int ffs_func_setup(struct usb_function *,
 static void ffs_func_suspend(struct usb_function *);
 static void ffs_func_resume(struct usb_function *);
 
+
 static int ffs_func_revmap_ep(struct ffs_function *func, u8 num);
 static int ffs_func_revmap_intf(struct ffs_function *func, u8 intf);
+
 
 /* The endpoints structures *************************************************/
 
@@ -334,12 +345,14 @@ ffs_sb_create_file(struct super_block *sb, const char *name, void *data,
 		   const struct file_operations *fops,
 		   struct dentry **dentry_p);
 
+
 /* Misc helper functions ****************************************************/
 
 static int ffs_mutex_lock(struct mutex *mutex, unsigned nonblock)
 	__attribute__((warn_unused_result, nonnull));
 static char *ffs_prepare_buffer(const char __user *buf, size_t len)
 	__attribute__((warn_unused_result, nonnull));
+
 
 /* Control file aka ep0 *****************************************************/
 
@@ -736,6 +749,7 @@ static const struct file_operations ffs_ep0_operations = {
 	.unlocked_ioctl =	ffs_ep0_ioctl,
 };
 
+
 /* "Normal" endpoints operations ********************************************/
 
 static void ffs_epfile_io_complete(struct usb_ep *_ep, struct usb_request *req)
@@ -752,9 +766,6 @@ static void ffs_epfile_io_complete(struct usb_ep *_ep, struct usb_request *req)
 }
 
 #define MAX_BUF_LEN	4096
-#ifdef CONFIG_HUAWEI_USB
-#define WRITE_TIME	120
-#endif
 static ssize_t ffs_epfile_io(struct file *file,
 			     char __user *buf, size_t len, int read)
 {
@@ -765,17 +776,7 @@ static ssize_t ffs_epfile_io(struct file *file,
 	ssize_t ret;
 	int halt;
 	int buffer_len = 0;
-#ifdef CONFIG_HUAWEI_USB
-	long err = 0;
 
-	long time_size;
-	if(!read){
-		time_size = WRITE_TIME*HZ;
-	}
-	else{
-		time_size = MAX_SCHEDULE_TIMEOUT;
-	}
-#endif
 	pr_debug("%s: len %zu, read %d\n", __func__, len, read);
 
 	if (atomic_read(&epfile->error))
@@ -823,15 +824,28 @@ first_try:
 			}
 		}
 
-		buffer_len = !read ? len : round_up(len,
+		spin_lock_irq(&epfile->ffs->eps_lock);
+		/*
+		 * While we were acquiring lock endpoint got disabled
+		 * (disconnect) or changed (composition switch) ?
+		 */
+		if (epfile->ep == ep) {
+			buffer_len = !read ? len : round_up(len,
 						ep->ep->desc->wMaxPacketSize);
+		} else {
+			spin_unlock_irq(&epfile->ffs->eps_lock);
+			ret = -ENODEV;
+			goto error;
+		}
 
 		/* Do we halt? */
 		halt = !read == !epfile->in;
 		if (halt && epfile->isoc) {
+			spin_unlock_irq(&epfile->ffs->eps_lock);
 			ret = -EINVAL;
 			goto error;
 		}
+		spin_unlock_irq(&epfile->ffs->eps_lock);
 
 		/* Allocate & copy */
 		if (!halt && !data) {
@@ -892,27 +906,6 @@ first_try:
 
 		if (unlikely(ret < 0)) {
 			ret = -EIO;
-		/* replace wait_for_completion_interruptible with wait_for_completion_interruptible_timeout
-		  * wait_for_completion_interruptible_timeout return 0 meaning timeoout
-		  * return -1 meaning be interrupted, retrun > 0 meaning completion: normal thing
-		  * write operation maybe be timeout, read operation will not be timeout
-		  */
-#ifdef CONFIG_HUAWEI_USB
-		} else if((err = wait_for_completion_interruptible_timeout(done, time_size)) <= 0){
-			spin_lock_irq(&epfile->ffs->eps_lock);
-			if (ep->ep)
-				usb_ep_dequeue(ep->ep, req);
-			spin_unlock_irq(&epfile->ffs->eps_lock);
-
-			if( (!read) && !err) {
-				pr_err("f_fs: %s: wait_for_completion timeout, read:%d,len(%d)\n", __func__, read,(int)len);
-				ret = -ETIMEDOUT;
-			}
-			else {
-				pr_err("f_fs: %s: wait_for_completion be EINTR, read:%d,len(%d)\n", __func__, read,(int)len);
-				ret = -EINTR;
-			}
-#else
 		} else if (unlikely(wait_for_completion_interruptible(done))) {
 			spin_lock_irq(&epfile->ffs->eps_lock);
 			/*
@@ -923,7 +916,6 @@ first_try:
 				usb_ep_dequeue(ep->ep, req);
 			spin_unlock_irq(&epfile->ffs->eps_lock);
 			ret = -EINTR;
-#endif
 		} else {
 			spin_lock_irq(&epfile->ffs->eps_lock);
 			/*
@@ -1056,6 +1048,7 @@ static const struct file_operations ffs_epfile_operations = {
 	.release =	ffs_epfile_release,
 	.unlocked_ioctl =	ffs_epfile_ioctl,
 };
+
 
 /* File system and super block operations ***********************************/
 
@@ -1328,6 +1321,7 @@ static struct file_system_type ffs_fs_type = {
 };
 MODULE_ALIAS_FS("functionfs");
 
+
 /* Driver's main init/cleanup functions *************************************/
 
 static int functionfs_init(void)
@@ -1352,6 +1346,7 @@ static void functionfs_cleanup(void)
 	pr_info("unloading\n");
 	unregister_filesystem(&ffs_fs_type);
 }
+
 
 /* ffs_data and ffs_function construction and destruction code **************/
 
@@ -1475,6 +1470,7 @@ static void ffs_data_reset(struct ffs_data *ffs)
 	ffs->setup_state = FFS_NO_SETUP;
 	ffs->flags = 0;
 }
+
 
 static int functionfs_bind(struct ffs_data *ffs, struct usb_composite_dev *cdev)
 {
@@ -1714,6 +1710,7 @@ static int ffs_func_eps_enable(struct ffs_function *func)
 
 	return ret;
 }
+
 
 /* Parsing and building descriptors and strings *****************************/
 
@@ -2163,6 +2160,7 @@ error:
 	return -EINVAL;
 }
 
+
 /* Events handling and management *******************************************/
 
 static void __ffs_event_add(struct ffs_data *ffs,
@@ -2230,6 +2228,7 @@ static void ffs_event_add(struct ffs_data *ffs,
 	__ffs_event_add(ffs, type);
 	spin_unlock_irqrestore(&ffs->ev.waitq.lock, flags);
 }
+
 
 /* Bind/unbind USB function hooks *******************************************/
 
@@ -2461,6 +2460,7 @@ static int ffs_func_bind(struct usb_configuration *c,
 			goto error;
 	}
 
+
 	/*
 	 * Now handle interface numbers allocation and interface and
 	 * endpoint numbers rewriting.  We can do that in one go
@@ -2482,6 +2482,7 @@ error:
 	/* XXX Do we need to release all claimed endpoints here? */
 	return ret;
 }
+
 
 /* Other USB function hooks *************************************************/
 
@@ -2608,6 +2609,7 @@ static void ffs_func_resume(struct usb_function *f)
 	ffs_event_add(ffs_func_from_usb(f)->ffs, FUNCTIONFS_RESUME);
 }
 
+
 /* Endpoint and interface numbers reverse mapping ***************************/
 
 static int ffs_func_revmap_ep(struct ffs_function *func, u8 num)
@@ -2628,6 +2630,7 @@ static int ffs_func_revmap_intf(struct ffs_function *func, u8 intf)
 
 	return -EDOM;
 }
+
 
 /* Misc helper functions ****************************************************/
 

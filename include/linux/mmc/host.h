@@ -19,9 +19,6 @@
 
 #include <linux/mmc/core.h>
 #include <linux/mmc/pm.h>
-#ifdef CONFIG_HW_MMC_TEST
-#define CARD_ADDR_MAGIC 0xA5A55A5AA5A55A5ALL
-#endif
 
 struct mmc_ios {
 	unsigned int	clock;			/* clock rate */
@@ -239,14 +236,6 @@ struct mmc_host {
 	unsigned int		f_min;
 	unsigned int		f_max;
 	unsigned int		f_init;
-	unsigned long           l1;   /*jiffies timestamp*/
-	unsigned long           l2;
-	unsigned long           l3;
-	unsigned long           l4;
-	unsigned long           l5;
-	unsigned long           l6;
-	unsigned long           l7;
-	unsigned long           l8;
 	u32			ocr_avail;
 	u32			ocr_avail_sdio;	/* SDIO-specific OCR */
 	u32			ocr_avail_sd;	/* SD-specific OCR */
@@ -446,10 +435,6 @@ struct mmc_host {
 		ktime_t start;
 	} perf;
 	bool perf_enable;
-#ifdef CONFIG_HW_MMC_TEST
-	int test_status;            /* save mmc_test status */
-#endif
-
 #endif
 	struct {
 		unsigned long	busy_time_us;

@@ -138,12 +138,6 @@ struct scan_control {
  * From 0 .. 100.  Higher means more swappy.
  */
 int vm_swappiness = 60;
-#ifdef CONFIG_HUAWEI_DIRECT_SWAPPINESS
-/*
- * Direct reclaim swappiness, exptct 0 - 60. Higher means more swappy and slower.
- */
-int direct_vm_swappiness = 60;
-#endif
 unsigned long vm_total_pages;	/* The total number of pages which the VM controls */
 
 static LIST_HEAD(shrinker_list);
@@ -1122,7 +1116,7 @@ cull_mlocked:
 		if (PageSwapCache(page))
 			try_to_free_swap(page);
 		unlock_page(page);
-		putback_lru_page(page);
+		list_add(&page->lru, &ret_pages);
 		continue;
 
 activate_locked:
@@ -1951,7 +1945,7 @@ static void get_scan_count(struct lruvec *lruvec, struct scan_control *sc,
 	bool force_scan = false;
 	unsigned long ap, fp;
 	enum lru_list lru;
-    int swappiness = vmscan_swappiness(sc);
+
 	/*
 	 * If the zone or memcg is small, nr[l] can be 0.  This
 	 * results in no scanning on this priority and a potential
@@ -1962,16 +1956,8 @@ static void get_scan_count(struct lruvec *lruvec, struct scan_control *sc,
 	 * latencies, so it's better to scan a minimum amount there as
 	 * well.
 	 */
-
-	if (current_is_kswapd()) {
-	    if (!zone_reclaimable(zone))
+	if (current_is_kswapd() && !zone_reclaimable(zone))
 		force_scan = true;
-#ifdef CONFIG_HUAWEI_DIRECT_SWAPPINESS
-	} else {
-		swappiness = direct_vm_swappiness;
-#endif
-	}
-
 	if (!global_reclaim(sc))
 		force_scan = true;
 
@@ -1988,7 +1974,7 @@ static void get_scan_count(struct lruvec *lruvec, struct scan_control *sc,
 	 * using the memory controller's swap limit feature would be
 	 * too expensive.
 	 */
-	if (!global_reclaim(sc) && !swappiness) {
+	if (!global_reclaim(sc) && !vmscan_swappiness(sc)) {
 		scan_balance = SCAN_FILE;
 		goto out;
 	}
@@ -1998,7 +1984,7 @@ static void get_scan_count(struct lruvec *lruvec, struct scan_control *sc,
 	 * system is close to OOM, scan both anon and file equally
 	 * (unless the swappiness setting disagrees with swapping).
 	 */
-	if (!sc->priority && swappiness) {
+	if (!sc->priority && vmscan_swappiness(sc)) {
 		scan_balance = SCAN_EQUAL;
 		goto out;
 	}
@@ -3912,6 +3898,7 @@ static ssize_t write_scan_unevictable_node(struct device *dev,
 	warn_scan_unevictable_pages();
 	return 1;
 }
+
 
 static DEVICE_ATTR(scan_unevictable_pages, S_IRUGO | S_IWUSR,
 			read_scan_unevictable_node,

@@ -5,10 +5,6 @@
 ccflags-y += -Idrivers/misc/
 ccflags-y += -Isecurity/selinux -Isecurity/selinux/include
 
-ccflags-y += -Idrivers/video/msm/mdss/
-
-ccflags-$(CONFIG_SRECORDER) += -Idrivers/srecorder/include
-
 obj-$(CONFIG_MSM_BUS_SCALING) += msm_bus/
 obj-$(CONFIG_BUS_TOPOLOGY_ADHOC) += msm_bus/
 obj-$(CONFIG_MSM_MHI) += mhi/

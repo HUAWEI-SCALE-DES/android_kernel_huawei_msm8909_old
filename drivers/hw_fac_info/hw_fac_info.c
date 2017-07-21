@@ -17,7 +17,7 @@
 #include <linux/string.h>
 #include <linux/of.h>
 #include <linux/config_interface.h>
-#include <hw_fac_info.h>
+#include "hw_fac_info.h"
 int hw_fac_info_debug_mask = FAC_INFO;
 
 #define NAME_LEN 32
@@ -158,3 +158,4 @@ module_exit(fac_info_exit);
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("for getting Factory Info");
 MODULE_AUTHOR("zhaorenjie <zhaorenjie@huawei.com>");
+

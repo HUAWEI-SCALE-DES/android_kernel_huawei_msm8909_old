@@ -156,6 +156,7 @@ static int mdss_dsi_generic_swrite(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 	if (dchdr->last)
 		*hp |= DSI_HDR_LAST;
 
+
 	len = (dchdr->dlen > 2) ? 2 : dchdr->dlen;
 
 	if (len == 1) {
@@ -671,10 +672,6 @@ int mdss_dsi_cmdlist_put(struct mdss_dsi_ctrl_pdata *ctrl,
 	struct dcs_cmd_list *clist;
 	int ret = 0;
 
-/*avoid running test read and esd read conflict and device crash */
-#ifdef CONFIG_HUAWEI_LCD
-	mutex_lock(&ctrl->put_mutex);
-#endif
 	mutex_lock(&ctrl->cmd_mutex);
 	clist = &ctrl->cmdlist;
 	req = &clist->list[clist->put];
@@ -690,7 +687,6 @@ int mdss_dsi_cmdlist_put(struct mdss_dsi_ctrl_pdata *ctrl,
 		clist->get %= CMD_REQ_MAX;
 		clist->tot--;
 	}
-	mutex_unlock(&ctrl->cmd_mutex);
 
 	pr_debug("%s: tot=%d put=%d get=%d\n", __func__,
 		clist->tot, clist->put, clist->get);
@@ -701,8 +697,8 @@ int mdss_dsi_cmdlist_put(struct mdss_dsi_ctrl_pdata *ctrl,
 		else
 			ret = ctrl->cmdlist_commit(ctrl, 0);
 	}
-#ifdef CONFIG_HUAWEI_LCD
-	mutex_unlock(&ctrl->put_mutex);
-#endif
+	mutex_unlock(&ctrl->cmd_mutex);
+
 	return ret;
 }
+

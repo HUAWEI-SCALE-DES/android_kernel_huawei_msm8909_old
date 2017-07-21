@@ -402,11 +402,12 @@ struct i2c_msm_clk_div_fld {
 	u8                 fs_div;
 	u8                 ht_div;
 };
+
 /*
  * divider values as per HW Designers
  */
 static struct i2c_msm_clk_div_fld i2c_msm_clk_div_map[] = {
-	{KHz(100),  93, 93},
+	{KHz(100), 124, 62},
 	{KHz(400),  28, 14},
 	{KHz(1000),  8,  5},
 };
@@ -2015,6 +2016,7 @@ i2c_msm_qup_choose_mode(struct i2c_msm_ctrl *ctrl)
 	size_t rx_cnt_sum = xfer->rx_cnt + xfer->rx_ovrhd_cnt;
 	size_t tx_cnt_sum = xfer->tx_cnt + xfer->tx_ovrhd_cnt;
 
+
 	if (ctrl->dbgfs.force_xfer_mode != I2C_MSM_XFER_MODE_NONE)
 		return ctrl->dbgfs.force_xfer_mode;
 
@@ -2413,6 +2415,7 @@ static int i2c_msm_dt_to_pdata_populate(struct i2c_msm_ctrl *ctrl,
 	return err;
 }
 
+
 /*
  * i2c_msm_rsrcs_process_dt: copy data from DT to platform data
  * @return zero on success or negative error code
@@ -2532,6 +2535,7 @@ static void i2c_msm_rsrcs_irq_teardown(struct i2c_msm_ctrl *ctrl)
 	free_irq(ctrl->rsrcs.irq, ctrl);
 }
 
+
 static struct pinctrl_state *
 i2c_msm_rsrcs_gpio_get_state(struct i2c_msm_ctrl *ctrl, const char *name)
 {
@@ -2646,6 +2650,8 @@ static void i2c_msm_rsrcs_clk_teardown(struct i2c_msm_ctrl *ctrl)
 	clk_put(ctrl->rsrcs.iface_clk);
 	i2c_msm_clk_path_teardown(ctrl);
 }
+
+
 
 static void i2c_msm_pm_suspend(struct device *dev)
 {
