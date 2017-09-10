@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -280,6 +280,12 @@ static int32_t msm_actuator_piezo_move_focus(
 	if (num_steps <= 0 || num_steps > MAX_NUMBER_OF_STEPS) {
 		pr_err("num_steps out of range = %d\n",
 			num_steps);
+		return -EFAULT;
+	}
+
+	if (dest_step_position > a_ctrl->total_steps) {
+		pr_err("Step pos greater than total steps = %d\n",
+			dest_step_position);
 		return -EFAULT;
 	}
 
@@ -619,8 +625,8 @@ static int msm_actuator_software_pwdn(struct msm_actuator_ctrl_t *a_ctrl)
 {
 	int rc = 0;
 	struct msm_camera_i2c_reg_setting reg_setting;
-	struct msm_camera_i2c_reg_array *i2c_reg_tbl=NULL;
-	struct msm_camera_i2c_reg_array i2c_reg_tbll={0x80,0x00,10};
+	struct msm_camera_i2c_reg_array *i2c_reg_tbl = NULL;
+	struct msm_camera_i2c_reg_array i2c_reg_tbll = { 0x80, 0x00, 10 };
 
 	a_ctrl->i2c_tbl_index = 1;
 	i2c_reg_tbl = &i2c_reg_tbll;
@@ -630,7 +636,7 @@ static int msm_actuator_software_pwdn(struct msm_actuator_ctrl_t *a_ctrl)
 	reg_setting.addr_type = MSM_CAMERA_I2C_BYTE_ADDR;
 	reg_setting.delay = 10;
 	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write_table_w_microdelay(
-		&a_ctrl->i2c_client, &reg_setting);
+			&a_ctrl->i2c_client, &reg_setting);
 	if (rc < 0)
 		pr_err("msm_actuator_software_pwdn failed\n");
 
@@ -1020,7 +1026,7 @@ static long msm_actuator_subdev_ioctl(struct v4l2_subdev *sd,
 	struct msm_actuator_ctrl_t *a_ctrl = v4l2_get_subdevdata(sd);
 	void __user *argp = (void __user *)arg;
 	CDBG("Enter\n");
-	CDBG("%s:%d a_ctrl %p argp %p\n", __func__, __LINE__, a_ctrl, argp);
+	CDBG("%s:%d a_ctrl %pK argp %pK\n", __func__, __LINE__, a_ctrl, argp);
 	switch (cmd) {
 	case VIDIOC_MSM_SENSOR_GET_SUBDEV_ID:
 		return msm_actuator_get_subdev_id(a_ctrl, argp);
@@ -1054,7 +1060,6 @@ static long msm_actuator_subdev_do_ioctl(
 
 	switch (cmd) {
 	case VIDIOC_MSM_ACTUATOR_CFG32:
-		cmd = VIDIOC_MSM_ACTUATOR_CFG;
 		switch (u32->cfgtype) {
 		case CFG_SET_ACTUATOR_INFO:
 			actuator_data.cfgtype = u32->cfgtype;
@@ -1157,11 +1162,14 @@ static long msm_actuator_subdev_do_ioctl(
 		}
 	}
 
-	rc = msm_actuator_subdev_ioctl(sd, cmd, parg);
+	if (cmd == VIDIOC_MSM_ACTUATOR_CFG32)
+		rc = msm_actuator_subdev_ioctl(sd, VIDIOC_MSM_ACTUATOR_CFG, parg);
+	else
+		rc = msm_actuator_subdev_ioctl(sd, cmd, parg);
 
 	switch (cmd) {
 
-	case VIDIOC_MSM_ACTUATOR_CFG:
+	case VIDIOC_MSM_ACTUATOR_CFG32:
 
 		switch (u32->cfgtype) {
 
@@ -1256,7 +1264,7 @@ static int32_t msm_actuator_i2c_probe(struct i2c_client *client,
 		goto probe_failure;
 	}
 
-	CDBG("client = 0x%p\n",  client);
+	CDBG("client = 0x%pK\n",  client);
 
 	rc = of_property_read_u32(client->dev.of_node, "cell-index",
 		&act_ctrl_t->subdev_id);
@@ -1281,12 +1289,12 @@ static int32_t msm_actuator_i2c_probe(struct i2c_client *client,
 	act_ctrl_t->i2c_client.client = client;
 	act_ctrl_t->curr_step_pos = 0,
 	act_ctrl_t->curr_region_index = 0,
-	act_ctrl_t->actuator_state = ACTUATOR_POWER_DOWN;
 	/* Set device type as I2C */
 	act_ctrl_t->act_device_type = MSM_CAMERA_I2C_DEVICE;
 	act_ctrl_t->i2c_client.i2c_func_tbl = &msm_sensor_qup_func_tbl;
 	act_ctrl_t->act_v4l2_subdev_ops = &msm_actuator_subdev_ops;
 	act_ctrl_t->actuator_mutex = &msm_actuator_mutex;
+
 	act_ctrl_t->cam_name = act_ctrl_t->subdev_id;
 	CDBG("act_ctrl_t->cam_name: %d", act_ctrl_t->cam_name);
 	/* Assign name for sub device */

@@ -36,7 +36,7 @@ Modification : Created function
 #define OV8858_MAX_OTP_LENS_NUM 110
 
 //the value used for vcm effect, maybe modified by others
-#define OV8858_OTP_VCM_OFFSET_VALUE            200
+#define OV8858_OTP_VCM_OFFSET_VALUE            (200)
 
 //OV8858 has three groups: [1,2,3]
 typedef enum ov8858_groups_count{
@@ -292,6 +292,7 @@ int32_t ov8858_read_group_address_index(struct msm_sensor_ctrl_t *s_ctrl, uint16
 {
 	int32_t ret = 0;
 	int32_t index = 0;
+
 	//get vaild gruop index
 	for(index = 1; index < GROUP_MAX; index++)
 	{
@@ -362,7 +363,7 @@ int32_t ov8858_read_group_data(struct msm_sensor_ctrl_t *s_ctrl, enum_ov8858_otp
 		return -1;
 	}
 
-	pr_err("%s: otp_type=%d index:%d, check_addr=%x\n", __func__,otp_type,index, check_addr);
+	pr_debug("%s: otp_type=%d index:%d \n", __func__,otp_type,index);
 
 	start_address = pcur_addr_array[index].start_address;
 	end_address = pcur_addr_array[index].end_address;
@@ -410,8 +411,8 @@ int32_t ov8858_read_group_data(struct msm_sensor_ctrl_t *s_ctrl, enum_ov8858_otp
 
 		ov8858_otp_read_i2c(s_ctrl,start_address + 4, &msb_data); //gb_gr msb
 		ov8858_otp_read_i2c(s_ctrl,start_address + 5, &lsb_data); //gb_gr lsb
-		g_ov8858_otp.gb_gr_ratio = ((msb_data & 0xFF) << 8) | (lsb_data & 0xFF);
-	}  
+		g_ov8858_otp.gb_gr_ratio= ((msb_data & 0xFF) << 8) | (lsb_data & 0xFF);
+	}
 	else if(otp_type == LENS_OTP)
 	{
 		for(i=0;i<OV8858_MAX_OTP_LENS_NUM;i++) {
@@ -537,7 +538,7 @@ int32_t ov8858_read_otp_data(struct msm_sensor_ctrl_t *s_ctrl, uint16_t *hw_otp_
 	 ov8858_mmi_otp_flag &= ~OV8858_MMI_OTP_LSC_FLAG;
 
 	ov8858_otp_enable_DPC(s_ctrl);
-	pr_err("%s: year=%d month=%d day=%d product=%d moduleid=%d rg=%d bg=%d gb_gr=%d vcm_start=%d vcm_end=%d \n", __func__,
+	pr_debug("%s: year=%d month=%d day=%d product=%d moduleid=%d rg=%d bg=%d gb_gr=%d vcm_start=%d vcm_end=%d \n", __func__,
 			g_ov8858_otp.production_year,g_ov8858_otp.production_month,g_ov8858_otp.production_day,g_ov8858_otp.lens_id,g_ov8858_otp.module_integrator_id,
 			g_ov8858_otp.rg_ratio,g_ov8858_otp.bg_ratio,g_ov8858_otp.gb_gr_ratio,g_ov8858_otp.VCM_start,g_ov8858_otp.VCM_end);
 
@@ -618,7 +619,7 @@ int32_t ov8858_update_awb_otp(struct msm_sensor_ctrl_t *s_ctrl)
 		ov8858_otp_write_i2c(s_ctrl,0x5037, B_gain & 0x00ff);
 	}
 
-	pr_err("%s: R_gain=%d, G_gain=%d, B_gain=%d \n",__func__,R_gain,G_gain,B_gain);
+	pr_debug("%s: R_gain=%d, G_gain=%d, B_gain=%d \n",__func__,R_gain,G_gain,B_gain);
 	return 0;
 }
 
