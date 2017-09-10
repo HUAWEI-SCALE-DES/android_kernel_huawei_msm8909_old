@@ -37,8 +37,6 @@
 		compatible = "ti,lm3642";
 		label = "lm3642";
 		qcom,flash-type = <1>;
-		qcom,gpio-no-mux = <0>;
-		qcom,enable_pinctrl;
 		qcom,flash-high-current = <6>; /* 656.25mA */
 		pinctrl-names = "cam_flash_default","cam_flash_suspend";
 		pinctrl-0 = <&cam_sensor_flash_default>;
@@ -58,7 +56,7 @@
 / {
 	qcom,hw-camera-board-id {
 		compatible = "qcom,hw-camera-board-id";
-		qcom,product-name = "msm8909_scl_l02";
+		qcom,product-name = "msm8909_scl_l01";
 	};
 };
 
